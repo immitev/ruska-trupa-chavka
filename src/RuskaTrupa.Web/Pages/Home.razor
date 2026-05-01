@@ -1,0 +1,3226 @@
+@page "/"
+@inject CultureState Text
+@inject IJSRuntime Js
+
+<PageTitle>@Text["AppName"]</PageTitle>
+
+@if (!isReady)
+{
+    <main class="game-shell">
+        <section class="table-panel">
+            <h1>@Text["AppName"]</h1>
+            <p>@Text["LoadingGame"]</p>
+        </section>
+    </main>
+    return;
+}
+
+<main class="game-shell">
+    <section class="table-panel">
+        <div class="game-board-layout">
+            <aside class="game-rail" aria-label="@Text["GameSetup"]">
+                <div class="rail-brand">
+                    <strong>@Text["AppName"]</strong>
+                    <div class="rail-tools">
+                        <select class="language-select" aria-label="@Text["Language"]" value="@Text.CurrentCulture.TwoLetterISOLanguageName" @onchange="OnCultureChanged">
+                            <option value="bg">БГ</option>
+                            <option value="en">EN</option>
+                        </select>
+                        <button class="help-button" type="button" aria-label="@Text["Rules"]" title="@Text["Rules"]" @onclick="ShowRules">?</button>
+                    </div>
+                </div>
+
+                <div class="rail-actions">
+                    <button class="btn btn-primary btn-sm" @onclick="NewDeal">@Text["NewGame"]</button>
+                    @if (CanEnableHumanAutoplay())
+                    {
+                        <button class="btn btn-secondary btn-sm" type="button" @onclick="EnableHumanAutoplayAsync">@Text["AutoplayHand"]</button>
+                    }
+                    @if (!pendingResignConfirmation && HumanResignAction() is not null)
+                    {
+                        <button class="btn btn-outline-danger btn-sm" type="button" @onclick="ShowResignConfirmation">
+                            @Text["ResignHand"]
+                        </button>
+                    }
+                </div>
+
+                @if (IsReplayMode)
+                {
+                    <section class="replay-panel" aria-label="@Text["Replay"]">
+                        <div class="replay-status">
+                            <strong>@Text["Replay"]</strong>
+                            <span>@ReplayStepLabel()</span>
+                        </div>
+                        <div class="replay-actions">
+                            <button class="btn btn-secondary btn-sm" type="button" disabled="@(replayStep <= 0)" @onclick="PreviousReplayStep">@Text["Previous"]</button>
+                            <button class="btn btn-secondary btn-sm" type="button" disabled="@(replayStep >= replayActions.Count)" @onclick="NextReplayStep">@Text["Next"]</button>
+                            <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="ExitReplay">@Text["ExitReplay"]</button>
+                        </div>
+                        <span class="replay-current-action">@ReplayCurrentActionLabel()</span>
+                    </section>
+                }
+
+                <section class="@PhaseControlsClass()">
+                    @foreach (var action in HumanNonCardActions())
+                    {
+                        <button class="@ActionButtonClass(action)" type="button" aria-label="@ActionLabel(action)" @onclick="() => ApplyHumanAction(action)">
+                            @ActionLabel(action)
+                        </button>
+                    }
+                </section>
+            </aside>
+
+        <section class="@PlayAreaClass()" aria-label="@Text["GameTable"]">
+            <section class="table-score-zone" aria-label="@Text["CurrentScore"]">
+                @foreach (var player in game.Players)
+                {
+                    <span class="@ScoreNameClass(player)">@PlayerName(player)</span>
+                    <strong class="@ScoreValueClass(player)">@game.GameScores[player.Id]</strong>
+                }
+            </section>
+
+            @if (game.Phase != GamePhase.GameOver)
+            {
+                @OpponentSeat(PlayerId.Second, "table-seat seat-top")
+                @OpponentSeat(PlayerId.Third, "table-seat seat-left")
+            }
+
+            <div class="table-center">
+                @if (game.Phase == GamePhase.GameOver)
+                {
+                    <div class="game-over-center" role="status" aria-live="polite">
+                        <div class="winner-celebration">
+                            <span class="winner-spark winner-spark-left"></span>
+                            <span class="winner-spark winner-spark-right"></span>
+                            <small>@Text["GameWinnerAnnouncement"]</small>
+                            <strong>@PlayerName(Winner())</strong>
+                        </div>
+                        <button class="table-result-button play-again-button" type="button" @onclick="PlayAgainAsync">
+                            @Text["PlayAgain"]
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    @if (pendingNewGameConfirmation)
+                    {
+                        <div class="resign-confirm-panel" role="alertdialog" aria-live="polite">
+                            <strong>@Text["NewGame"]</strong>
+                            <span>@Text["ConfirmNewGame"]</span>
+                            <div class="resign-confirm-actions">
+                                <button class="btn btn-secondary btn-sm" type="button" @onclick="CancelNewGameConfirmation">
+                                    @Text["Cancel"]
+                                </button>
+                                <button class="btn btn-primary btn-sm" type="button" @onclick="ConfirmNewGameAsync">
+                                    @Text["NewGame"]
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    else if (ShouldShowTalonExchangePreview())
+                    {
+                        <div class="@TalonExchangePreviewClass()" aria-label="@Text["Talon"]">
+                        @if (ShouldShowTalonExchangeTitle())
+                        {
+                            <strong class="talon-exchange-title">
+                                <span>@TalonExchangeTitleLabel()</span>
+                                <span class="@TalonExchangeTitleTrumpClass()">@TalonExchangeTitleTrump()</span>
+                                @if (awaitingHumanPlayStartConfirmation)
+                                {
+                                    <button class="btn btn-secondary btn-sm talon-review-subtle-button" type="button" @onclick="ChangeHumanTrumpAsync">
+                                        @SetupReviewLabel("Смени коза", "Change trump")
+                                    </button>
+                                }
+                            </strong>
+                        }
+                        <div class="@TalonExchangeCardsClass()">
+                            @foreach (var item in TalonExchangeItems())
+                            {
+                                <article class="@TalonExchangeCardClass(item)">
+                                    @CardView(item.Card, "mini-card")
+                                    @if (!string.IsNullOrWhiteSpace(item.Label) && !ShouldUseDirectedTalonCards())
+                                    {
+                                        <span>@item.Label</span>
+                                    }
+                                </article>
+                            }
+                        </div>
+                        @if (awaitingTalonExchangeConfirmation)
+                        {
+                            <button class="btn btn-success btn-sm talon-confirm-button" type="button" @onclick="ConfirmTalonExchangePreviewAsync">
+                                @Text["PlayOn"]
+                            </button>
+                        }
+                        @if (awaitingHumanPlayStartConfirmation)
+                        {
+                            <div class="talon-review-actions">
+                                <div class="talon-review-secondary-actions">
+                                    <button class="btn btn-secondary btn-sm talon-review-subtle-button" type="button" @onclick="ChangeHumanPassedCardsAsync">
+                                        @SetupReviewLabel("Смени раздадените карти", "Change passed cards")
+                                    </button>
+                                </div>
+                                <button class="btn btn-success btn-sm talon-confirm-button" type="button" @onclick="ConfirmHumanExchangeAsync">
+                                    @Text["PlayOn"]
+                                </button>
+                            </div>
+                        }
+                        </div>
+                    }
+                    else if (IsHumanBidding())
+                    {
+                        <div class="bid-picker" aria-label="@Text["Bidding"]">
+                        @if (HumanBidActions().Any(action => action.Amount is null))
+                        {
+                            <button class="btn btn-secondary" type="button" @onclick="PassBid">@Text["Pass"]</button>
+                        }
+                        @if (QuickBidOptions().Count > 0)
+                        {
+                            <div class="bid-quick-picker">
+                                @foreach (var amount in QuickBidOptions())
+                                {
+                                    <button class="bid-quick-button" type="button" @onclick="() => SubmitBidAmount(amount)">
+                                        @amount
+                                    </button>
+                                }
+                            </div>
+                        }
+                        @if (HumanBidActions().Any(action => action.Amount is not null))
+                        {
+                            <input @ref="bidInputElement" type="number" min="@MinimumHumanBid()" step="1" value="@BidInputValue()" @onchange="OnBidInputChanged" @onkeydown="OnBidInputKeyDown" autofocus />
+                        }
+                        @if (HumanBidActions().Any(action => action.Amount is not null) && BidRequiresMarriageSuit())
+                        {
+                            <div class="bid-marriage-picker" aria-label="@Text["BidMarriageSuit"]">
+                                @foreach (var suit in HumanBidMarriageSuits())
+                                {
+                                    <button class="@BidMarriageButtonClass(suit)" type="button" title="@SuitName(suit)" @onclick="() => SelectBidMarriageSuit(suit)">
+                                        @SuitSymbol(suit)
+                                    </button>
+                                }
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(bidError))
+                        {
+                            <span class="bid-error">@bidError</span>
+                        }
+                        </div>
+                    }
+                    else if (pendingResignConfirmation)
+                    {
+                        <div class="resign-confirm-panel" role="alertdialog" aria-live="polite">
+                            <strong>@SetupReviewLabel("Искаш да се откажеш?", "Resign this hand?")</strong>
+                            <span>@SetupReviewLabel("Опонентите ти ще получат по 25 точки.", "Your opponents will receive 25 points each.")</span>
+                            <div class="resign-confirm-actions">
+                                <button class="btn btn-secondary btn-sm" type="button" @onclick="CancelResignConfirmation">
+                                    @SetupReviewLabel("Продължи играта", "Continue game")
+                                </button>
+                                <button class="btn btn-danger btn-sm" type="button" @onclick="ConfirmResignAsync">
+                                    @SetupReviewLabel("Да, отказвам се", "Yes, resign")
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    else if (game.Phase == GamePhase.PassCards && CurrentPassRecipient() is not null)
+                    {
+                        <div class="pass-target table-pass-target">@PassTargetLabel()</div>
+                    }
+                    else if (game.Phase == GamePhase.ChooseTrump && HumanTrumpActions().Count > 0)
+                    {
+                        <div class="trump-picker" aria-label="@Text["ChooseTrump"]">
+                        <h2>@Text["ChooseTrump"]</h2>
+                        <div class="trump-options">
+                            @foreach (var action in HumanTrumpActions())
+                            {
+                                <button class="@TrumpButtonClass(action.Trump)" type="button" aria-label="@ActionLabel(action)" @onclick="() => ApplyHumanAction(action)">
+                                    <strong>@TrumpSymbol(action.Trump)</strong>
+                                </button>
+                            }
+                        </div>
+                        </div>
+                    }
+                    else if (game.Phase == GamePhase.ScoringHand && HumanSettleAction() is { } settleAction)
+                    {
+                        @if (HumanCompletedContract())
+                        {
+                            <div class="contract-success-toast" role="status">
+                                <span class="celebration-spark spark-left"></span>
+                                <strong>@Text["ContractSuccess"]</strong>
+                                <span class="celebration-score">@game.HandScores[PlayerId.First]/@game.WinningBid</span>
+                                <span class="celebration-spark spark-right"></span>
+                            </div>
+                        }
+                        <div class="table-result-panel">
+                        <div class="table-result-summary">
+                            @foreach (var player in game.Players)
+                            {
+                                <span class="@HandResultClass(player.Id)">
+                                    @PlayerName(player): @SettlementDelta(player.Id)
+                                </span>
+                            }
+                        </div>
+                        <button class="table-result-button" type="button" @onclick="() => ApplyHumanAction(settleAction)">
+                            @Text["SettleHand"]
+                        </button>
+                        @if (CanStartReplay())
+                        {
+                            <button class="table-review-button" type="button" @onclick="StartReplay">
+                                @Text["ReviewHand"]
+                            </button>
+                        }
+                        </div>
+                    }
+                    else if (game.Phase == GamePhase.RevealTalon || isHumanTalonCollecting)
+                    {
+                        <div class="@HumanTalonRevealClass()">
+                        @foreach (var card in game.Talon)
+                        {
+                            @CardView(card, "mini-card")
+                        }
+                        </div>
+                    }
+
+                    @if (VisibleTableTrick().Count > 0)
+                    {
+                        <div class="@CurrentTrickCardsClass()" aria-label="@Text["CurrentTrick"]">
+                        @foreach (var played in VisibleTableTrick())
+                        {
+                            <article class="@PlayedCardClass(played.Player)">
+                                @if (MarriageCardPreviewFor(played.Player) is { } marriagePreview)
+                                {
+                                    <div class="marriage-card-preview">
+                                        @CardView(new Card(marriagePreview.Suit, Rank.Queen), "mini-card")
+                                        @CardView(new Card(marriagePreview.Suit, Rank.King), "mini-card")
+                                    </div>
+                                }
+                                else
+                                {
+                                    @CardView(played.Card, "mini-card")
+                                }
+                            </article>
+                        }
+                        </div>
+                    }
+                }
+            </div>
+
+            @if (ShouldShowTalonZone())
+            {
+                <aside class="talon-zone" aria-label="@Text["Talon"]">
+                    <div class="talon-stack">
+                        @if (ShouldShowOpenTalonCards())
+                        {
+                            @foreach (var card in TalonZoneCards())
+                            {
+                                @CardView(card, "mini-card")
+                            }
+                        }
+                        else
+                        {
+                            @for (var index = 0; index < game.Talon.Count; index++)
+                            {
+                                <span class="card-back talon-back" style="--card-index: @index"></span>
+                            }
+                        }
+                    </div>
+                </aside>
+            }
+
+            @if (game.Phase is not (GamePhase.Bidding or GamePhase.GameOver))
+            {
+                <aside @key="contractAnimationKey" class="@ContractZoneClass()" aria-label="@Text["Contract"]">
+                    <span class="contract-bid">
+                        @if (game.Bidder is { } bidder)
+                        {
+                            <em>@PlayerName(bidder)</em>
+                        }
+                        <small>@Text["Bid"]</small>
+                        <strong>@(game.WinningBid?.ToString() ?? Text["NoBid"])</strong>
+                    </span>
+                    <span class="contract-trump">
+                        <small>@Text["Trump"]</small>
+                        <strong class="@TrumpContractClass()">@TrumpContractLabel()</strong>
+                    </span>
+                </aside>
+            }
+
+            @if (game.Phase != GamePhase.GameOver && LastTrickForZone() is { } lastTrick)
+            {
+                <aside class="last-trick-zone" aria-label="@Text["LastTrick"]">
+                    <span class="zone-label">@Text["LastTrick"]</span>
+                    <strong>@PlayerName(game.Players.Single(player => player.Id == lastTrick.Winner))</strong>
+                    <div class="history-cards">
+                        @foreach (var played in lastTrick.Cards)
+                        {
+                            @CardView(played.Card, "micro-card")
+                        }
+                    </div>
+                </aside>
+            }
+
+            @if (game.Phase != GamePhase.GameOver)
+            {
+            <section class="human-seat" aria-label="@Text["YourHand"]">
+                <div class="human-seat-info">
+                    <strong>@PlayerName(PlayerId.First)</strong>
+                    @if (MarriageFlashLabel(PlayerId.First) is { } humanFlash)
+                    {
+                        <span class="marriage-flash">@humanFlash</span>
+                    }
+                    @if (MarriageBonusLabel(PlayerId.First) is { } humanBonus)
+                    {
+                        <span class="bonus-badge">@humanBonus</span>
+                    }
+                    @if (HumanTrupaAction() is { } trupaAction)
+                    {
+                        <button class="trupa-table-button" type="button" title="@Text["SignalTrupaHint"]" @onclick="() => ApplyHumanAction(trupaAction)">
+                            <span aria-hidden="true">📣</span>
+                            @Text["SignalTrupa"]
+                        </button>
+                    }
+                </div>
+                <div class="human-card-row">
+                    <div class="hand">
+                        @foreach (var card in HumanHand())
+                        {
+                            <button class="@CardClass(card)" type="button" aria-label="@HandCardLabel(card)" title="@CardLabel(card)" disabled="@(!CanUseCard(card))" @onclick="() => UseHumanCard(card)">
+                                @CardInner(card)
+                            </button>
+                        }
+                    </div>
+                    @if (PendingPassedCardFor(PlayerId.First) is { } humanPendingCard)
+                    {
+                        <div class="pending-passed-card pending-passed-card-human">
+                            @CardView(humanPendingCard, "mini-card")
+                        </div>
+                    }
+                    @TrickPile(PlayerId.First, "trick-pile-human")
+                </div>
+            </section>
+            }
+        </section>
+        </div>
+
+    </section>
+
+    @if (rulesVisible)
+    {
+        <div class="modal-backdrop rules-backdrop" role="presentation" @onclick="HideRules">
+            <section class="rules-modal" role="dialog" aria-modal="true" aria-labelledby="rules-title" @onclick:stopPropagation>
+                <header>
+                    <h2 id="rules-title">@Text["Rules"]</h2>
+                    <button class="modal-close-button" type="button" aria-label="@Text["Close"]" @onclick="HideRules">×</button>
+                </header>
+                <div class="rules-content">
+                    @foreach (var rule in RulesText())
+                    {
+                        <p>@rule</p>
+                    }
+                </div>
+            </section>
+        </div>
+    }
+
+    @if (newGameSetupVisible)
+    {
+        <div class="modal-backdrop setup-backdrop" role="presentation" @onclick="CancelNewGameSetup">
+            <section class="rules-modal setup-modal" role="dialog" aria-modal="true" aria-labelledby="setup-title" @onclick:stopPropagation>
+                <header class="setup-modal-header">
+                    <div class="setup-title-block">
+                        <span class="setup-kicker">@Text["AppName"]</span>
+                        <h2 id="setup-title">@Text["NewGameSetup"]</h2>
+                    </div>
+                    <div class="setup-header-tools">
+                        <select class="language-select setup-language-select" aria-label="@Text["Language"]" value="@Text.CurrentCulture.TwoLetterISOLanguageName" @onchange="OnCultureChanged">
+                            <option value="bg">БГ</option>
+                            <option value="en">EN</option>
+                        </select>
+                        <button class="help-button" type="button" aria-label="@Text["Rules"]" title="@Text["Rules"]" @onclick="ShowRules">?</button>
+                        @if (CanCancelNewGameSetup())
+                        {
+                            <button class="modal-close-button" type="button" aria-label="@Text["Close"]" @onclick="CancelNewGameSetup">×</button>
+                        }
+                    </div>
+                </header>
+                <div class="setup-modal-content">
+                    <label>
+                        <span>@Text["YourName"]</span>
+                        <input value="@humanName" @onchange="OnHumanNameChanged" maxlength="24" />
+                    </label>
+                    <div class="setup-opponents-grid">
+                        @foreach (var player in game.Players.Where(player => player.Kind == PlayerKind.Bot))
+                        {
+                            <section class="setup-opponent-card" aria-label="@PlayerSetupLabel(player.Id)">
+                                <h3>@PlayerSetupLabel(player.Id)</h3>
+                                <label>
+                                    <span>@Text["OpponentName"]</span>
+                                    <input value="@BotNameValue(player.Id)" @onchange="args => SetBotName(player.Id, args.Value?.ToString())" maxlength="24" placeholder="@SuggestedPersonaName(player.Id)" />
+                                </label>
+                                <label>
+                                    <span>@Text["PlayStyle"]</span>
+                                    <select value="@PersonaKey(player.Id)" @onchange="args => SetPersona(player.Id, args.Value?.ToString())" aria-label="@Text["PlayStyle"]">
+                                        @foreach (var persona in PersonaOptions)
+                                        {
+                                            <option value="@persona.Key">@PersonaStyle(persona)</option>
+                                        }
+                                    </select>
+                                </label>
+                                <label>
+                                    <span>@Text["PlaySpeed"]</span>
+                                    <select value="@BotDelaySeconds(player.Id).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)" @onchange="args => SetBotDelay(player.Id, args.Value?.ToString())" aria-label="@Text["PlaySpeed"]">
+                                        @foreach (var delay in BotDelayOptions)
+                                        {
+                                            <option value="@delay.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)">@DelayLabel(delay)</option>
+                                        }
+                                    </select>
+                                </label>
+                                <label>
+                                    <span>@Text["BotSkill"]</span>
+                                    <select value="@BotSkill(player.Id).ToString()" @onchange="args => SetBotSkill(player.Id, args.Value?.ToString())" aria-label="@Text["BotSkill"]">
+                                        @foreach (var level in BotSkillOptions)
+                                        {
+                                            <option value="@level.ToString()">@BotSkillLabel(level)</option>
+                                        }
+                                    </select>
+                                </label>
+                            </section>
+                        }
+                    </div>
+                    <div class="setup-modal-actions">
+                        @if (CanCancelNewGameSetup())
+                        {
+                            <button class="btn btn-secondary" type="button" @onclick="CancelNewGameSetup">@Text["Cancel"]</button>
+                        }
+                        <button class="btn btn-primary" type="button" @onclick="StartConfiguredNewGame">@Text["StartGame"]</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    }
+</main>
+
+@code {
+    private const string SaveKey = "ruska-trupa-state-v1";
+    private const string CultureKey = "ruska-trupa-culture";
+    private const string PersonaStorageKey = "ruska-trupa-personas";
+    private const string BotDelayStorageKey = "ruska-trupa-bot-delays";
+    private const string BotSkillStorageKey = "ruska-trupa-bot-skills";
+    private const string BotNameStorageKey = "ruska-trupa-bot-names";
+    private const string HumanNameStorageKey = "ruska-trupa-human-name";
+    private const string SetupLockedStorageKey = "ruska-trupa-setup-locked";
+    private readonly GameReducer reducer = new();
+    private readonly LegalActionProvider legalActions = new();
+    private readonly Dictionary<PlayerId, string> personaKeys = new()
+    {
+        [PlayerId.Second] = "mila",
+        [PlayerId.Third] = "georgi"
+    };
+    private readonly Dictionary<PlayerId, double> botDelaySeconds = new()
+    {
+        [PlayerId.Second] = 0.5,
+        [PlayerId.Third] = 0.5
+    };
+    private readonly Dictionary<PlayerId, BotSkillLevel> botSkillLevels = new()
+    {
+        [PlayerId.Second] = BotSkillLevel.Advanced,
+        [PlayerId.Third] = BotSkillLevel.Advanced
+    };
+    private readonly Dictionary<PlayerId, string> botNames = new()
+    {
+        [PlayerId.Second] = string.Empty,
+        [PlayerId.Third] = string.Empty
+    };
+
+    private GameState game = GameState.StartNewHand(Environment.TickCount);
+    private string humanName = string.Empty;
+    private int? bidInput;
+    private int? bidInputMinimum;
+    private Suit? bidMarriageSuit;
+    private string? bidError;
+    private ElementReference bidInputElement;
+    private int? focusedBidMinimum;
+    private IReadOnlyList<Card>? talonExchangePreview;
+    private IReadOnlyList<PassCardAction>? pendingBotTalonPasses;
+    private int botTalonPreviewStage;
+    private MarriageBonusPreview? marriageFlash;
+    private MarriageCardPreview? marriageCardPreview;
+    private CompletedTrick? tableTrickPreview;
+    private bool tableTrickCollecting;
+    private bool awaitingTalonExchangeConfirmation;
+    private bool awaitingHumanPlayStartConfirmation;
+    private bool pendingResignConfirmation;
+    private bool pendingNewGameConfirmation;
+    private bool isHumanTalonCollecting;
+    private bool isHumanTalonCollectingIn;
+    private GameState? liveGameBeforeReplay;
+    private IReadOnlyList<GameAction> replayActions = Array.Empty<GameAction>();
+    private int replayStep;
+    private bool triedLoad;
+    private bool isReady;
+    private bool setupLocked;
+    private bool rulesVisible;
+    private bool newGameSetupVisible;
+    private bool newGameSetupRequired;
+    private bool autoPlayHuman;
+    private bool skipNextAutoplayDelay;
+    private int contractAnimationKey;
+    private bool contractAnnouncementAnimating;
+
+    private static IReadOnlyList<PlayerPersona> PersonaOptions { get; } =
+    [
+        new("mila", "Mila", "\u041c\u0438\u043b\u0430", "Balanced", "\u0411\u0430\u043b\u0430\u043d\u0441\u0438\u0440\u0430\u043d\u0430"),
+        new("georgi", "Georgi", "\u0413\u0435\u043e\u0440\u0433\u0438", "Bold", "\u0421\u043c\u0435\u043b"),
+        new("elena", "Elena", "\u0415\u043b\u0435\u043d\u0430", "Patient", "\u0422\u044a\u0440\u043f\u0435\u043b\u0438\u0432\u0430"),
+        new("nikolay", "Nikolay", "\u041d\u0438\u043a\u043e\u043b\u0430\u0439", "Sharp", "\u041f\u0440\u0435\u0446\u0438\u0437\u0435\u043d")
+    ];
+
+    private static IReadOnlyList<double> BotDelayOptions { get; } = [0.0, 0.5, 1.0, 1.5];
+    private static IReadOnlyList<BotSkillLevel> BotSkillOptions { get; } =
+        [BotSkillLevel.Beginner, BotSkillLevel.Intermediate, BotSkillLevel.Advanced];
+
+    protected override void OnInitialized()
+    {
+        _ = AdvanceBotsAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !triedLoad)
+        {
+            triedLoad = true;
+            await LoadCultureAsync();
+            await LoadPersonasAsync();
+            await LoadBotNamesAsync();
+            await LoadBotDelaysAsync();
+            await LoadBotSkillsAsync();
+            await LoadHumanNameAsync();
+            await LoadSetupLockedAsync();
+            if (!await LoadUnfinishedGameAsync())
+            {
+                newGameSetupRequired = true;
+                newGameSetupVisible = true;
+            }
+            isReady = true;
+            StateHasChanged();
+            return;
+        }
+
+        await FocusBidInputIfNeededAsync();
+    }
+
+    private Task NewDeal()
+    {
+        ExitReplay();
+        if (ShouldConfirmNewGame())
+        {
+            pendingNewGameConfirmation = true;
+            pendingResignConfirmation = false;
+            StateHasChanged();
+            return Task.CompletedTask;
+        }
+
+        newGameSetupVisible = true;
+        return Task.CompletedTask;
+    }
+
+    private void CancelNewGameConfirmation()
+    {
+        pendingNewGameConfirmation = false;
+    }
+
+    private Task ConfirmNewGameAsync()
+    {
+        pendingNewGameConfirmation = false;
+        newGameSetupVisible = true;
+        return Task.CompletedTask;
+    }
+
+    private void CancelNewGameSetup()
+    {
+        if (!CanCancelNewGameSetup())
+        {
+            return;
+        }
+
+        newGameSetupVisible = false;
+    }
+
+    private async Task StartConfiguredNewGame()
+    {
+        newGameSetupRequired = false;
+        newGameSetupVisible = false;
+        LockSetup();
+        await StartFreshGameAsync();
+        _ = SavePersonasAsync();
+        _ = SaveBotNamesAsync();
+        _ = SaveBotDelaysAsync();
+        _ = SaveBotSkillsAsync();
+        _ = SaveHumanNameAsync();
+    }
+
+    private async Task PlayAgainAsync()
+    {
+        ExitReplay();
+        await StartFreshGameAsync();
+    }
+
+    private async Task StartFreshGameAsync()
+    {
+        bidInput = null;
+        bidInputMinimum = null;
+        bidMarriageSuit = null;
+        bidError = null;
+        talonExchangePreview = null;
+        pendingBotTalonPasses = null;
+        botTalonPreviewStage = 0;
+        awaitingTalonExchangeConfirmation = false;
+        awaitingHumanPlayStartConfirmation = false;
+        pendingResignConfirmation = false;
+        pendingNewGameConfirmation = false;
+        marriageFlash = null;
+        marriageCardPreview = null;
+        marriageCardPreview = null;
+        marriageCardPreview = null;
+        tableTrickPreview = null;
+        tableTrickCollecting = false;
+        autoPlayHuman = false;
+        skipNextAutoplayDelay = false;
+        game = GameState.StartNewHand(Random.Shared.Next());
+        await AdvanceBotsAsync();
+        _ = SaveAsync();
+    }
+
+    private bool ShouldConfirmNewGame()
+    {
+        return game.Phase != GamePhase.GameOver && game.ActionLog.Count > 0;
+    }
+
+    private async Task ApplyHumanAction(GameAction action)
+    {
+        await ApplyHumanActions([action]);
+    }
+
+    private async Task ApplyHumanActions(IReadOnlyList<GameAction> actions)
+    {
+        if (IsReplayMode)
+        {
+            return;
+        }
+
+        if (actions.Count == 1 && actions[0] is ResignHandAction && !pendingResignConfirmation)
+        {
+            ShowResignConfirmation();
+            return;
+        }
+
+        if (actions.Count == 1 && actions[0] is RevealTalonAction reveal && reveal.Player == PlayerId.First)
+        {
+            await RevealHumanTalonAsync(reveal);
+            return;
+        }
+
+        LockSetup();
+        pendingResignConfirmation = false;
+        tableTrickPreview = null;
+        tableTrickCollecting = false;
+        if (!actions.Any(action => action is ChooseTrumpAction or PassCardAction))
+        {
+            talonExchangePreview = null;
+        }
+        pendingBotTalonPasses = null;
+        botTalonPreviewStage = 0;
+        awaitingTalonExchangeConfirmation = false;
+        awaitingHumanPlayStartConfirmation = false;
+        pendingResignConfirmation = false;
+        marriageFlash = null;
+        marriageCardPreview = null;
+
+        CompletedTrick? completed = null;
+        var announcedMarriage = false;
+        var announcedContract = false;
+        foreach (var action in actions)
+        {
+            completed = ApplyAction(action) ?? completed;
+            announcedMarriage = announcedMarriage || action is AnnounceMarriageAction;
+            announcedContract = announcedContract || action is ChooseTrumpAction;
+        }
+
+        if (announcedContract)
+        {
+            await PlayContractAnnouncementAsync();
+        }
+
+        if (announcedMarriage)
+        {
+            StateHasChanged();
+            _ = HoldMarriageCardPreviewAsync();
+            await HoldMarriageFlashAsync();
+        }
+
+        if (completed is not null)
+        {
+            await HoldCompletedTrickIfNeededAsync(completed);
+        }
+
+        if (ShouldPauseBeforeHumanFirstPlay())
+        {
+            awaitingHumanPlayStartConfirmation = true;
+            StateHasChanged();
+            _ = SaveAsync();
+            return;
+        }
+
+        await AdvanceBotsAsync();
+        _ = SaveAsync();
+    }
+
+    private void LockSetup()
+    {
+        if (setupLocked)
+        {
+            return;
+        }
+
+        setupLocked = true;
+        _ = SaveSetupLockedAsync();
+    }
+
+    private async Task UseHumanCard(Card card)
+    {
+        if (IsReplayMode || awaitingHumanPlayStartConfirmation)
+        {
+            return;
+        }
+
+        var action = LegalFor(PlayerId.First)
+            .FirstOrDefault(action => action is PlayCardAction play && play.Card == card
+                || action is PassCardAction pass && pass.Card == card);
+
+        if (action is not null)
+        {
+            if (action is PlayCardAction play && MarriageActionFor(card) is { } marriage)
+            {
+                await ApplyHumanActions([marriage, play]);
+                return;
+            }
+
+            await ApplyHumanAction(action);
+        }
+    }
+
+    private async Task AdvanceBotsAsync()
+    {
+        if (IsReplayMode)
+        {
+            return;
+        }
+
+        var guard = 0;
+        while (guard++ < 200 && game.Phase != GamePhase.GameOver)
+        {
+            if (game.Phase == GamePhase.ScoringHand)
+            {
+                StopHumanAutoplayAtHandResult();
+                break;
+            }
+
+            var action = ChooseAutomaticAction();
+            if (action is null)
+            {
+                break;
+            }
+
+            if (action is PlayCardAction play)
+            {
+                var delay = game.GetHand(play.Player).Count <= 1 || skipNextAutoplayDelay
+                    ? 0
+                    : ActionDelay(BotDelayMilliseconds(play.Player));
+                skipNextAutoplayDelay = false;
+                if (delay > 0)
+                {
+                    await Task.Delay(delay);
+                }
+            }
+
+            if (!autoPlayHuman && action is RevealTalonAction { Player: { } player } reveal && player == PlayerId.First)
+            {
+                await RevealHumanTalonAsync(reveal, continueAfterReveal: false);
+                break;
+            }
+
+            if (ShouldPreviewBotTalonPasses(action))
+            {
+                pendingBotTalonPasses = BuildPendingBotTalonPasses((PassCardAction)action);
+                botTalonPreviewStage = 2;
+                awaitingTalonExchangeConfirmation = true;
+                StateHasChanged();
+                break;
+            }
+
+            var botActions = ExpandBotAction(action);
+            CompletedTrick? completed = null;
+            var announcedMarriage = false;
+            foreach (var botAction in botActions)
+            {
+                completed = ApplyAction(botAction) ?? completed;
+                announcedMarriage = announcedMarriage || botAction is AnnounceMarriageAction;
+            }
+
+            if (announcedMarriage)
+            {
+                StateHasChanged();
+                _ = HoldMarriageCardPreviewAsync();
+                await HoldMarriageFlashAsync();
+            }
+
+            if (action is RevealTalonAction or PassCardAction)
+            {
+                StateHasChanged();
+                if (action is RevealTalonAction revealAction && revealAction.Player != PlayerId.First)
+                {
+                    await Task.Delay(ActionDelay(2000));
+                    StateHasChanged();
+                    continue;
+                }
+
+                if (ShouldWaitForTalonExchangeConfirmation(action))
+                {
+                    botTalonPreviewStage = 2;
+                    awaitingTalonExchangeConfirmation = true;
+                    StateHasChanged();
+                    break;
+                }
+
+                await Task.Delay(ActionDelay(1000));
+                ClearBotExchangePreview(action);
+                StateHasChanged();
+            }
+
+            if (action is ChooseTrumpAction chooseTrump && chooseTrump.Player != PlayerId.First && talonExchangePreview is not null)
+            {
+                botTalonPreviewStage = 1;
+                await PlayContractAnnouncementAsync();
+                StateHasChanged();
+                await Task.Delay(ActionDelay(800));
+            }
+
+            if (completed is not null)
+            {
+                StateHasChanged();
+                await HoldCompletedTrickIfNeededAsync(completed);
+            }
+        }
+    }
+
+    private GameAction? ChooseAutomaticAction()
+    {
+        if (game.Phase == GamePhase.ScoringHand)
+        {
+            return null;
+        }
+
+        if (game.Phase == GamePhase.RevealTalon)
+        {
+            return LegalFor(game.CurrentPlayer).OfType<RevealTalonAction>().FirstOrDefault();
+        }
+
+        return IsAutomaticTurn() ? ChooseBotAction() : null;
+    }
+
+    private CompletedTrick? ApplyAction(GameAction action)
+    {
+        var previousCompletedCount = game.CompletedTricks.Count;
+        if (action is RevealTalonAction)
+        {
+            talonExchangePreview = game.Talon.ToArray();
+            pendingBotTalonPasses = null;
+            botTalonPreviewStage = 0;
+        }
+        else if (action is PassCardAction)
+        {
+        }
+        else if (action is not ChooseTrumpAction)
+        {
+            talonExchangePreview = null;
+            pendingBotTalonPasses = null;
+            botTalonPreviewStage = 0;
+        }
+
+        game = reducer.Apply(game, action);
+        if (action is SettleHandAction)
+        {
+            StopHumanAutoplayAtHandResult();
+        }
+
+        if (action is AnnounceMarriageAction marriage)
+        {
+            var announcement = game.MarriageAnnouncements.LastOrDefault(announcement =>
+                announcement.Player == marriage.Player && announcement.Suit == marriage.Suit);
+            if (announcement is not null)
+            {
+                marriageFlash = new MarriageBonusPreview(announcement.Player, announcement.Points);
+                marriageCardPreview = new MarriageCardPreview(announcement.Player, announcement.Suit);
+            }
+        }
+
+        if (game.CompletedTricks.Count > previousCompletedCount)
+        {
+            tableTrickPreview = game.CompletedTricks[^1];
+            return tableTrickPreview;
+        }
+
+        return null;
+    }
+
+    private void StopHumanAutoplayAtHandResult()
+    {
+        autoPlayHuman = false;
+        skipNextAutoplayDelay = false;
+    }
+
+    private async Task HoldMarriageFlashAsync()
+    {
+        await Task.Delay(ActionDelay(1200));
+        marriageFlash = null;
+        StateHasChanged();
+    }
+
+    private async Task HoldMarriageCardPreviewAsync()
+    {
+        await Task.Delay(ActionDelay(500));
+        marriageCardPreview = null;
+        StateHasChanged();
+    }
+
+    private async Task PlayContractAnnouncementAsync()
+    {
+        contractAnimationKey++;
+        contractAnnouncementAnimating = true;
+        StateHasChanged();
+        await Task.Delay(ActionDelay(900));
+        contractAnnouncementAnimating = false;
+        StateHasChanged();
+    }
+
+    private void ClearBotExchangePreview(GameAction action)
+    {
+        if (action is PassCardAction && game.Phase != GamePhase.PassCards)
+        {
+            talonExchangePreview = null;
+            botTalonPreviewStage = 0;
+        }
+    }
+
+    private bool ShouldWaitForTalonExchangeConfirmation(GameAction action)
+    {
+        return action is PassCardAction pass
+            && pass.Player != PlayerId.First
+            && game.Phase != GamePhase.PassCards
+            && talonExchangePreview is not null;
+    }
+
+    private bool ShouldPreviewBotTalonPasses(GameAction action)
+    {
+        return action is PassCardAction pass
+            && pass.Player != PlayerId.First
+            && game.Phase == GamePhase.PassCards
+            && talonExchangePreview is not null
+            && pendingBotTalonPasses is null;
+    }
+
+    private IReadOnlyList<PassCardAction> BuildPendingBotTalonPasses(PassCardAction firstPass)
+    {
+        var passes = new List<PassCardAction> { firstPass };
+        var previewState = reducer.Apply(game, firstPass);
+        while (previewState.Phase == GamePhase.PassCards && passes.Count < 2)
+        {
+            var legal = legalActions.GetLegalActions(previewState, previewState.CurrentPlayer).OfType<PassCardAction>().ToArray();
+            if (legal.Length == 0)
+            {
+                break;
+            }
+
+            var observation = previewState.CreateObservation(previewState.CurrentPlayer);
+            var decision = BotFor(previewState.CurrentPlayer).DecideCardToPass(observation, legal.Select(action => action.Card).ToArray());
+            var next = legal.FirstOrDefault(action => action.Card == decision.Action) ?? legal[0];
+            passes.Add(next);
+            previewState = reducer.Apply(previewState, next);
+        }
+
+        return passes;
+    }
+
+    private async Task ConfirmTalonExchangePreviewAsync()
+    {
+        if (pendingBotTalonPasses is { Count: > 0 } passes)
+        {
+            foreach (var pass in passes)
+            {
+                ApplyAction(pass);
+            }
+        }
+
+        awaitingTalonExchangeConfirmation = false;
+        talonExchangePreview = null;
+        pendingBotTalonPasses = null;
+        botTalonPreviewStage = 0;
+        StateHasChanged();
+        await AdvanceBotsAsync();
+        _ = SaveAsync();
+    }
+
+    private async Task ConfirmHumanExchangeAsync()
+    {
+        awaitingHumanPlayStartConfirmation = false;
+        pendingResignConfirmation = false;
+        talonExchangePreview = null;
+        StateHasChanged();
+        await AdvanceBotsAsync();
+        _ = SaveAsync();
+    }
+
+    private async Task ChangeHumanTrumpAsync()
+    {
+        var preview = talonExchangePreview;
+        if (!RestoreToLastHumanAction<RevealTalonAction>())
+        {
+            return;
+        }
+
+        awaitingHumanPlayStartConfirmation = false;
+        pendingResignConfirmation = false;
+        talonExchangePreview = preview;
+        pendingBotTalonPasses = null;
+        botTalonPreviewStage = 0;
+        awaitingTalonExchangeConfirmation = false;
+        StateHasChanged();
+        _ = SaveAsync();
+        await Task.CompletedTask;
+    }
+
+    private async Task ChangeHumanPassedCardsAsync()
+    {
+        var preview = talonExchangePreview;
+        if (!RestoreToLastHumanAction<ChooseTrumpAction>())
+        {
+            return;
+        }
+
+        awaitingHumanPlayStartConfirmation = false;
+        pendingResignConfirmation = false;
+        talonExchangePreview = preview;
+        pendingBotTalonPasses = null;
+        botTalonPreviewStage = 0;
+        awaitingTalonExchangeConfirmation = false;
+        StateHasChanged();
+        _ = SaveAsync();
+        await Task.CompletedTask;
+    }
+
+    private bool RestoreToLastHumanAction<TAction>()
+        where TAction : GameAction
+    {
+        var actionIndex = -1;
+        for (var index = game.ActionLog.Count - 1; index >= 0; index--)
+        {
+            var action = game.ActionLog[index];
+            if (action is TAction && action.Player == PlayerId.First)
+            {
+                actionIndex = index;
+                break;
+            }
+        }
+
+        if (actionIndex < 0)
+        {
+            return false;
+        }
+
+        game = RestoreStateAfterAction(actionIndex);
+        bidInput = null;
+        bidInputMinimum = null;
+        bidMarriageSuit = null;
+        bidError = null;
+        marriageFlash = null;
+        marriageCardPreview = null;
+        tableTrickPreview = null;
+        tableTrickCollecting = false;
+        autoPlayHuman = false;
+        skipNextAutoplayDelay = false;
+        return true;
+    }
+
+    private GameState RestoreStateAfterAction(int actionIndex)
+    {
+        var state = GameState.StartNewHand(game.InitialSeed);
+        foreach (var action in game.ActionLog.Take(actionIndex + 1))
+        {
+            state = reducer.Apply(state, action);
+        }
+
+        return state;
+    }
+
+    private async Task RevealHumanTalonAsync(RevealTalonAction action, bool continueAfterReveal = true)
+    {
+        if (isHumanTalonCollecting)
+        {
+            return;
+        }
+
+        LockSetup();
+        tableTrickPreview = null;
+        tableTrickCollecting = false;
+        talonExchangePreview = null;
+        pendingBotTalonPasses = null;
+        botTalonPreviewStage = 0;
+        awaitingTalonExchangeConfirmation = false;
+        awaitingHumanPlayStartConfirmation = false;
+        pendingResignConfirmation = false;
+        marriageFlash = null;
+        marriageCardPreview = null;
+        isHumanTalonCollecting = true;
+        isHumanTalonCollectingIn = false;
+        StateHasChanged();
+
+        await Task.Delay(2000);
+        isHumanTalonCollectingIn = true;
+        StateHasChanged();
+
+        await Task.Delay(520);
+        ApplyAction(action);
+        isHumanTalonCollecting = false;
+        isHumanTalonCollectingIn = false;
+        StateHasChanged();
+
+        if (continueAfterReveal)
+        {
+            await AdvanceBotsAsync();
+        }
+
+        _ = SaveAsync();
+    }
+
+    private AnnounceMarriageAction? MarriageActionFor(Card card)
+    {
+        if (game.Phase != GamePhase.PlayingTricks
+            || game.CurrentPlayer != PlayerId.First
+            || game.CurrentTrick.Count != 0
+            || card.Rank is not (Rank.King or Rank.Queen))
+        {
+            return null;
+        }
+
+        var marriageSuit = card.Suit;
+        return LegalFor(PlayerId.First)
+            .OfType<AnnounceMarriageAction>()
+            .FirstOrDefault(action => action.Suit == marriageSuit);
+    }
+
+    private bool IsReplayMode => liveGameBeforeReplay is not null;
+
+    private bool CanStartReplay()
+    {
+        var range = LatestHandActionRange(game.ActionLog);
+        return !IsReplayMode && range.End > range.Start;
+    }
+
+    private void StartReplay()
+    {
+        if (!CanStartReplay())
+        {
+            return;
+        }
+
+        liveGameBeforeReplay = game;
+        replayActions = LatestHandReplayActions(liveGameBeforeReplay);
+        replayStep = 0;
+        SetReplayStep(replayStep);
+    }
+
+    private void ExitReplay()
+    {
+        if (liveGameBeforeReplay is null)
+        {
+            return;
+        }
+
+        game = liveGameBeforeReplay;
+        liveGameBeforeReplay = null;
+        replayActions = Array.Empty<GameAction>();
+        replayStep = 0;
+        talonExchangePreview = null;
+        botTalonPreviewStage = 0;
+        awaitingTalonExchangeConfirmation = false;
+        awaitingHumanPlayStartConfirmation = false;
+        pendingResignConfirmation = false;
+        marriageFlash = null;
+        marriageCardPreview = null;
+        tableTrickPreview = null;
+        tableTrickCollecting = false;
+    }
+
+    private void PreviousReplayStep()
+    {
+        SetReplayStep(Math.Max(0, replayStep - 1));
+    }
+
+    private void NextReplayStep()
+    {
+        SetReplayStep(Math.Min(replayActions.Count, replayStep + 1));
+    }
+
+    private void SetReplayStep(int step)
+    {
+        if (liveGameBeforeReplay is null)
+        {
+            return;
+        }
+
+        replayStep = Math.Clamp(step, 0, replayActions.Count);
+        game = RestoreReplayState(liveGameBeforeReplay, replayStep);
+        talonExchangePreview = null;
+        botTalonPreviewStage = 0;
+        awaitingTalonExchangeConfirmation = false;
+        awaitingHumanPlayStartConfirmation = false;
+        pendingResignConfirmation = false;
+        marriageFlash = null;
+        tableTrickPreview = ReplayTableTrickPreview();
+    }
+
+    private CompletedTrick? ReplayTableTrickPreview()
+    {
+        if (!IsReplayMode || replayStep <= 0 || replayStep > replayActions.Count)
+        {
+            return null;
+        }
+
+        return replayActions[replayStep - 1] is PlayCardAction && game.CurrentTrick.Count == 0
+            ? game.CompletedTricks.LastOrDefault()
+            : null;
+    }
+
+    private GameState RestoreReplayState(GameState source, int handStep)
+    {
+        var (segmentStart, _) = LatestHandActionRange(source.ActionLog);
+        var actionLimit = segmentStart + handStep;
+        var state = GameState.StartNewHand(source.InitialSeed);
+
+        foreach (var action in source.ActionLog.Take(actionLimit))
+        {
+            state = reducer.Apply(state, action);
+        }
+
+        return state;
+    }
+
+    private static IReadOnlyList<GameAction> LatestHandReplayActions(GameState source)
+    {
+        var range = LatestHandActionRange(source.ActionLog);
+        return source.ActionLog
+            .Skip(range.Start)
+            .Take(range.End - range.Start)
+            .ToArray();
+    }
+
+    private static (int Start, int End) LatestHandActionRange(IReadOnlyList<GameAction> actions)
+    {
+        var end = actions.Count;
+        if (end > 0 && actions[end - 1] is SettleHandAction)
+        {
+            end--;
+        }
+
+        for (var index = end - 1; index >= 0; index--)
+        {
+            if (actions[index] is SettleHandAction)
+            {
+                return (index + 1, end);
+            }
+        }
+
+        return (0, end);
+    }
+
+    private async Task HoldCompletedTrickIfNeededAsync(CompletedTrick completed)
+    {
+        await Task.Delay(ActionDelay(650));
+        if (ReferenceEquals(tableTrickPreview, completed) || tableTrickPreview == completed)
+        {
+            tableTrickCollecting = true;
+            StateHasChanged();
+            await Task.Delay(ActionDelay(520));
+        }
+
+        if (ReferenceEquals(tableTrickPreview, completed) || tableTrickPreview == completed)
+        {
+            tableTrickPreview = null;
+            tableTrickCollecting = false;
+            StateHasChanged();
+        }
+    }
+
+    private bool IsAutomaticTurn()
+    {
+        if (game.Phase == GamePhase.ScoringHand)
+        {
+            return autoPlayHuman;
+        }
+
+        if (game.Phase == GamePhase.Bidding)
+        {
+            return game.Players.Single(player => player.Id == game.CurrentPlayer).Kind == PlayerKind.Bot;
+        }
+
+        return game.Players.Single(player => player.Id == game.CurrentPlayer).Kind == PlayerKind.Bot
+            || autoPlayHuman && game.CurrentPlayer == PlayerId.First;
+    }
+
+    private GameAction? ChooseBotAction()
+    {
+        var current = game.CurrentPlayer;
+        var legal = LegalFor(current);
+
+        return game.Phase switch
+        {
+            GamePhase.Bidding => ChooseBotBid(current, legal.OfType<BidAction>().ToArray()),
+            GamePhase.RevealTalon => legal.OfType<RevealTalonAction>().FirstOrDefault(),
+            GamePhase.ChooseTrump => ChooseBotTrump(current, legal.OfType<ChooseTrumpAction>().ToArray()),
+            GamePhase.PassCards => ChooseBotPass(current, legal.OfType<PassCardAction>().ToArray()),
+            GamePhase.PlayingTricks => ChooseBotPlayingAction(current, legal),
+            GamePhase.ScoringHand => legal.OfType<SettleHandAction>().FirstOrDefault(),
+            _ => null
+        };
+    }
+
+    private GameAction ChooseBotBid(PlayerId player, IReadOnlyList<BidAction> legal)
+    {
+        var legalAmounts = legal.Select(action => action.Amount ?? 0).ToArray();
+        var decision = BotFor(player).DecideOpeningBid(game.CreateObservation(player), legalAmounts);
+        return legal.FirstOrDefault(action => action.Amount == decision.Action || action.Amount is null && decision.Action == 0)
+            ?? legal.OrderBy(action => action.Amount ?? int.MaxValue).First();
+    }
+
+    private GameAction ChooseBotTrump(PlayerId player, IReadOnlyList<ChooseTrumpAction> legal)
+    {
+        var decision = BotFor(player).DecideTrump(game.CreateObservation(player), legal.Select(action => action.Trump).ToArray());
+        return legal.First(action => action.Trump == decision.Action);
+    }
+
+    private GameAction ChooseBotPass(PlayerId player, IReadOnlyList<PassCardAction> legal)
+    {
+        var decision = BotFor(player).DecideCardToPass(game.CreateObservation(player), legal.Select(action => action.Card).ToArray());
+        return legal.First(action => action.Card == decision.Action);
+    }
+
+    private GameAction ChooseBotPlayingAction(PlayerId player, IReadOnlyList<GameAction> legal)
+    {
+        if (ShouldSignalTrupa(player, legal) is { } trupa)
+        {
+            return trupa;
+        }
+
+        var legalPlayActions = legal.OfType<PlayCardAction>().ToArray();
+        if (ShouldHonorTrupaSignal(player))
+        {
+            return legalPlayActions
+                .OrderByDescending(action => action.Card.PointValue)
+                .ThenByDescending(action => action.Card.Strength)
+                .First();
+        }
+
+        var legalPlays = legalPlayActions.Select(action => action.Card).ToArray();
+        var decision = BotFor(player).DecideCard(game.CreateObservation(player), legalPlays);
+        return legalPlayActions.First(action => action.Card == decision.Action);
+    }
+
+    private SignalTrupaAction? ShouldSignalTrupa(PlayerId player, IReadOnlyList<GameAction> legal)
+    {
+        if (game.Bidder is null || game.Bidder == player || BotSkill(player) == BotSkillLevel.Beginner)
+        {
+            return null;
+        }
+
+        var signal = legal.OfType<SignalTrupaAction>().FirstOrDefault();
+        if (signal is null)
+        {
+            return null;
+        }
+
+        var trickPoints = game.CurrentTrick.Sum(played => played.Card.PointValue);
+        var partner = PlayerOrder.All.Single(candidate => candidate != player && candidate != game.Bidder.Value);
+        var partnerHasPoints = game.GetHand(partner).Any(card => card.PointValue >= 10);
+        return BotSkill(player) == BotSkillLevel.Intermediate
+            ? trickPoints >= 15 ? signal : null
+            : trickPoints >= 10 || partnerHasPoints ? signal : null;
+    }
+
+    private bool ShouldHonorTrupaSignal(PlayerId player)
+    {
+        if (game.Bidder is null || game.Bidder == player)
+        {
+            return false;
+        }
+
+        var trickNumber = game.CompletedTricks.Count + 1;
+        return game.TrupaSignals.Any(signal =>
+            signal.TrickNumber == trickNumber
+            && signal.Player != player
+            && signal.Player != game.Bidder);
+    }
+
+    private IReadOnlyList<GameAction> ExpandBotAction(GameAction action)
+    {
+        if (action is not PlayCardAction play || game.CurrentTrick.Count != 0 || play.Card.Rank is not (Rank.King or Rank.Queen))
+        {
+            return [action];
+        }
+
+        var marriage = LegalFor(play.Player)
+            .OfType<AnnounceMarriageAction>()
+            .FirstOrDefault(announcement => announcement.Suit == play.Card.Suit);
+
+        return marriage is null ? [action] : [marriage, action];
+    }
+
+    private IReadOnlyList<GameAction> LegalFor(PlayerId player)
+    {
+        return legalActions.GetLegalActions(game, player);
+    }
+
+    private IReadOnlyList<GameAction> HumanNonCardActions()
+    {
+        if (IsReplayMode || isHumanTalonCollecting || autoPlayHuman)
+        {
+            return Array.Empty<GameAction>();
+        }
+
+        return LegalFor(PlayerId.First)
+            .Where(action => action is not PlayCardAction
+                and not PassCardAction
+                and not ChooseTrumpAction
+                and not BidAction
+                and not RevealTalonAction
+                and not SettleHandAction
+                and not AnnounceMarriageAction
+                and not SignalTrupaAction
+                and not ResignHandAction)
+            .ToArray();
+    }
+
+    private SignalTrupaAction? HumanTrupaAction()
+    {
+        if (IsReplayMode || autoPlayHuman)
+        {
+            return null;
+        }
+
+        return LegalFor(PlayerId.First).OfType<SignalTrupaAction>().FirstOrDefault();
+    }
+
+    private IReadOnlyList<BidAction> HumanBidActions()
+    {
+        if (IsReplayMode)
+        {
+            return Array.Empty<BidAction>();
+        }
+
+        return LegalFor(PlayerId.First)
+            .OfType<BidAction>()
+            .OrderBy(action => action.Amount ?? 0)
+            .ToArray();
+    }
+
+    private bool IsHumanBidding()
+    {
+        return game.Phase == GamePhase.Bidding && HumanBidActions().Count > 0 && !HasPlayerPassed(PlayerId.First);
+    }
+
+    private bool HasPlayerPassed(PlayerId player)
+    {
+        return game.Bids.Any(bid => bid.Player == player && bid.Amount is null);
+    }
+
+    private SettleHandAction? HumanSettleAction()
+    {
+        if (IsReplayMode || autoPlayHuman)
+        {
+            return null;
+        }
+
+        return LegalFor(PlayerId.First).OfType<SettleHandAction>().FirstOrDefault();
+    }
+
+    private IReadOnlyList<Suit> HumanBidMarriageSuits()
+    {
+        return HumanBidActions()
+            .Where(action => action.Amount > 120 && action.MarriageSuit is not null)
+            .Select(action => action.MarriageSuit!.Value)
+            .Distinct()
+            .OrderBy(suit => TrumpSuitSortValue(suit))
+            .ToArray();
+    }
+
+    private bool BidRequiresMarriageSuit()
+    {
+        return bidInput > 120 || MinimumHumanBid() > 120;
+    }
+
+    private IReadOnlyList<int> QuickBidOptions()
+    {
+        var legalAmounts = HumanBidActions()
+            .Where(action => action.Amount is not null)
+            .Select(action => action.Amount!.Value)
+            .ToHashSet();
+
+        var minimum = MinimumHumanBid();
+        if (minimum is null or 0)
+        {
+            return Array.Empty<int>();
+        }
+
+        var candidates = new List<int> { minimum.Value };
+        if (minimum.Value + 3 < 120)
+        {
+            candidates.Add(minimum.Value + 3);
+        }
+
+        candidates.Add(minimum.Value <= 120 ? 120 : 160);
+
+        return candidates
+            .Distinct()
+            .Where(legalAmounts.Contains)
+            .Take(3)
+            .ToArray();
+    }
+
+    private void SelectBidMarriageSuit(Suit suit)
+    {
+        bidMarriageSuit = suit;
+        bidError = null;
+    }
+
+    private int? MinimumHumanBid()
+    {
+        return HumanBidActions()
+            .Where(action => action.Amount is not null)
+            .Select(action => action.Amount!.Value)
+            .DefaultIfEmpty()
+            .Min();
+    }
+
+    private string BidInputValue()
+    {
+        var minimum = MinimumHumanBid();
+        if (minimum is null or 0)
+        {
+            return string.Empty;
+        }
+
+        if (bidInputMinimum != minimum.Value)
+        {
+            bidInputMinimum = minimum.Value;
+            bidInput = minimum.Value;
+        }
+        else if (bidInput is null || bidInput < minimum.Value)
+        {
+            bidInput = minimum.Value;
+        }
+
+        EnsureBidMarriageSuit();
+        return bidInput.Value.ToString();
+    }
+
+    private async Task FocusBidInputIfNeededAsync()
+    {
+        if (!isReady || !IsHumanBidding())
+        {
+            focusedBidMinimum = null;
+            return;
+        }
+
+        var minimum = MinimumHumanBid();
+        if (minimum is null or 0 || focusedBidMinimum == minimum.Value)
+        {
+            return;
+        }
+
+        focusedBidMinimum = minimum.Value;
+        await bidInputElement.FocusAsync();
+    }
+
+    private void EnsureBidMarriageSuit()
+    {
+        if (!BidRequiresMarriageSuit())
+        {
+            bidMarriageSuit = null;
+            return;
+        }
+
+        var suits = HumanBidMarriageSuits();
+        if (bidMarriageSuit is not null && suits.Contains(bidMarriageSuit.Value))
+        {
+            return;
+        }
+
+        bidMarriageSuit = suits.Count == 1 ? suits[0] : null;
+    }
+
+    private void OnBidInputChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var amount))
+        {
+            bidInput = amount;
+            bidError = null;
+            EnsureBidMarriageSuit();
+        }
+    }
+
+    private async Task OnBidInputKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await SubmitBid();
+        }
+    }
+
+    private async Task SubmitBid()
+    {
+        await SubmitBidAmount(bidInput ?? MinimumHumanBid());
+    }
+
+    private async Task SubmitBidAmount(int? requestedAmount)
+    {
+        var legalBids = HumanBidActions()
+            .Where(action => action.Amount is not null)
+            .ToArray();
+
+        if (legalBids.Length == 0)
+        {
+            if (bidInput > 120)
+            {
+                bidError = Text["BidMarriageRequiredError"];
+            }
+
+            return;
+        }
+
+        var requested = requestedAmount ?? legalBids[0].Amount!.Value;
+        bidInput = requested;
+        if (requested > 120)
+        {
+            EnsureBidMarriageSuit();
+            if (HumanBidMarriageSuits().Count == 0)
+            {
+                bidError = Text["BidMarriageRequiredError"];
+                return;
+            }
+
+            if (bidMarriageSuit is null)
+            {
+                bidError = Text["BidMarriageChooseSuitError"];
+                return;
+            }
+        }
+
+        var action = legalBids.FirstOrDefault(action => action.Amount!.Value >= requested
+                && (action.Amount <= 120 || action.MarriageSuit == bidMarriageSuit))
+            ?? legalBids.FirstOrDefault(action => action.Amount!.Value >= requested)
+            ?? legalBids[^1];
+        if (requested > 120 && action.Amount <= 120)
+        {
+            bidError = Text["BidMarriageRequiredError"];
+            return;
+        }
+
+        bidError = null;
+        bidInput = action.Amount;
+        await ApplyHumanAction(action);
+    }
+
+    private async Task PassBid()
+    {
+        var pass = HumanBidActions().FirstOrDefault(action => action.Amount is null);
+        if (pass is not null)
+        {
+            bidError = null;
+            await ApplyHumanAction(pass);
+        }
+    }
+
+    private IReadOnlyList<ChooseTrumpAction> HumanTrumpActions()
+    {
+        if (IsReplayMode || autoPlayHuman || pendingResignConfirmation)
+        {
+            return Array.Empty<ChooseTrumpAction>();
+        }
+
+        return LegalFor(PlayerId.First)
+            .OfType<ChooseTrumpAction>()
+            .OrderBy(action => TrumpSuitSortValue(action.Trump))
+            .ToArray();
+    }
+
+    private ResignHandAction? HumanResignAction()
+    {
+        if (IsReplayMode || autoPlayHuman)
+        {
+            return null;
+        }
+
+        return LegalFor(PlayerId.First).OfType<ResignHandAction>().FirstOrDefault();
+    }
+
+    private void ShowResignConfirmation()
+    {
+        if (HumanResignAction() is null)
+        {
+            return;
+        }
+
+        pendingResignConfirmation = true;
+    }
+
+    private void CancelResignConfirmation()
+    {
+        pendingResignConfirmation = false;
+    }
+
+    private async Task ConfirmResignAsync()
+    {
+        if (HumanResignAction() is { } action)
+        {
+            await ApplyHumanActions([action]);
+        }
+    }
+
+    private IReadOnlyList<GameAction> HumanCardActions()
+    {
+        if (IsReplayMode || autoPlayHuman)
+        {
+            return Array.Empty<GameAction>();
+        }
+
+        var actions = LegalFor(PlayerId.First)
+            .Where(action => action is PlayCardAction or PassCardAction)
+            .OrderBy(action => CardSortKey(CardForAction(action)))
+            .ToArray();
+
+        if (game.Phase == GamePhase.PassCards && CurrentPassRecipient() is { } recipient)
+        {
+            return actions
+                .Where(action => action is PassCardAction pass && pass.Recipient == recipient)
+                .ToArray();
+        }
+
+        return actions;
+    }
+
+    private IReadOnlyList<Card> HumanHand()
+    {
+        return SortHandForDisplay(game.GetHand(PlayerId.First));
+    }
+
+    private PlayerId? CurrentPassRecipient()
+    {
+        if (autoPlayHuman)
+        {
+            return null;
+        }
+
+        return LegalFor(PlayerId.First).OfType<PassCardAction>().Select(action => action.Recipient).FirstOrDefault();
+    }
+
+    private bool CanUseCard(Card card)
+    {
+        if (IsReplayMode || autoPlayHuman || awaitingHumanPlayStartConfirmation)
+        {
+            return false;
+        }
+
+        return LegalFor(PlayerId.First).Any(action => action is PlayCardAction play && play.Card == card
+            || action is PassCardAction pass && pass.Card == card);
+    }
+
+    private string SeatClass(PlayerSeat player)
+    {
+        return game.CurrentPlayer == player.Id ? "bot-seat active-seat" : "bot-seat";
+    }
+
+    private bool IsPlayable(Card card)
+    {
+        return CanUseCard(card);
+    }
+
+    private string ScoreTileClass(PlayerSeat player)
+    {
+        return game.CurrentPlayer == player.Id ? "score-tile active-score" : "score-tile";
+    }
+
+    private string ScoreNameClass(PlayerSeat player)
+    {
+        return game.CurrentPlayer == player.Id ? "score-name active-score" : "score-name";
+    }
+
+    private string ScoreValueClass(PlayerSeat player)
+    {
+        return game.CurrentPlayer == player.Id ? "score-value active-score" : "score-value";
+    }
+
+    private IReadOnlyList<PlayedCard> VisibleTableTrick()
+    {
+        return game.CurrentTrick.Count > 0
+            ? game.CurrentTrick
+            : tableTrickPreview?.Cards ?? Array.Empty<PlayedCard>();
+    }
+
+    private MarriageCardPreview? MarriageCardPreviewFor(PlayerId player)
+    {
+        return marriageCardPreview?.Player == player ? marriageCardPreview : null;
+    }
+
+    private string CurrentTrickCardsClass()
+    {
+        if (!tableTrickCollecting || tableTrickPreview is null)
+        {
+            return "current-trick-cards";
+        }
+
+        return tableTrickPreview.Winner == PlayerId.Second
+            ? "current-trick-cards collect-to-top"
+            : tableTrickPreview.Winner == PlayerId.Third
+                ? "current-trick-cards collect-to-left"
+                : "current-trick-cards collect-to-human";
+    }
+
+    private static string PlayedCardClass(PlayerId player)
+    {
+        return player == PlayerId.Second
+            ? "played-card-card trick-card-top"
+            : player == PlayerId.Third
+                ? "played-card-card trick-card-left"
+                : "played-card-card trick-card-human";
+    }
+
+    private CompletedTrick? LastTrickForZone()
+    {
+        var last = game.CompletedTricks.LastOrDefault();
+        if (last is null || tableTrickPreview == last)
+        {
+            return null;
+        }
+
+        return last;
+    }
+
+    private string PhaseControlsClass()
+    {
+        return game.Phase == GamePhase.Bidding ? "phase-controls bid-controls" : "phase-controls";
+    }
+
+    private string PlayAreaClass()
+    {
+        return game.Phase == GamePhase.GameOver ? "play-area game-over-area" : "play-area";
+    }
+
+    private string HumanTalonRevealClass()
+    {
+        var animation = isHumanTalonCollectingIn ? " collecting-in" : string.Empty;
+        return $"talon-cards center-talon human-talon-reveal{animation}";
+    }
+
+    private string SetupPanelClass()
+    {
+        return CanEditSetup() ? "setup-panel" : "setup-panel locked";
+    }
+
+    private bool ShowSetupPanel()
+    {
+        return !setupLocked || string.IsNullOrWhiteSpace(humanName);
+    }
+
+    private bool CanEditSetup()
+    {
+        return !IsReplayMode && (newGameSetupVisible || !setupLocked || string.IsNullOrWhiteSpace(humanName));
+    }
+
+    private bool CanEnableHumanAutoplay()
+    {
+        return !IsReplayMode
+            && !autoPlayHuman
+            && game.Phase is GamePhase.RevealTalon or GamePhase.ChooseTrump or GamePhase.PassCards or GamePhase.PlayingTricks
+            && !isHumanTalonCollecting;
+    }
+
+    private bool CanCancelNewGameSetup()
+    {
+        return !newGameSetupRequired;
+    }
+
+    private async Task EnableHumanAutoplayAsync()
+    {
+        if (!CanEnableHumanAutoplay())
+        {
+            return;
+        }
+
+        autoPlayHuman = true;
+        skipNextAutoplayDelay = true;
+        awaitingHumanPlayStartConfirmation = false;
+        pendingResignConfirmation = false;
+        talonExchangePreview = null;
+        pendingBotTalonPasses = null;
+        botTalonPreviewStage = 0;
+        StateHasChanged();
+        await AdvanceBotsAsync();
+        _ = SaveAsync();
+    }
+
+    private string ReplayStepLabel()
+    {
+        return $"{replayStep}/{replayActions.Count}";
+    }
+
+    private string ReplayCurrentActionLabel()
+    {
+        if (!IsReplayMode || replayActions.Count == 0 || replayStep == 0)
+        {
+            return Text["ReplayStart"];
+        }
+
+        var action = replayActions[Math.Clamp(replayStep - 1, 0, replayActions.Count - 1)];
+        if (action is PassCardAction pass)
+        {
+            var recipient = game.Players.Single(player => player.Id == pass.Recipient);
+            return $"{PlayerName(action.Player)} {Text["Gave"]} {CompactCardLabel(pass.Card)} {Text["To"]} {PlayerName(recipient)}";
+        }
+
+        return $"{PlayerName(action.Player)}: {ActionLabel(action)}";
+    }
+
+    private string ActionLabel(GameAction action)
+    {
+        return action switch
+        {
+            BidAction { Amount: null } => Text["Pass"],
+            BidAction bid => BidLabel(bid.Amount, bid.MarriageSuit),
+            RevealTalonAction => Text["RevealTalon"],
+            ChooseTrumpAction trump => $"{Text["ChooseTrump"]}: {TrumpSymbol(trump.Trump)}",
+            PassCardAction pass => $"{CardLabel(pass.Card)} - {Text["PassTo"]} {PlayerName(game.Players.Single(player => player.Id == pass.Recipient))}",
+            PlayCardAction play => CardLabel(play.Card),
+            AnnounceMarriageAction marriage => $"{Text["AnnounceMarriage"]}: {SuitSymbol(marriage.Suit)}",
+            SignalTrupaAction => Text["SignalTrupa"],
+            ResignHandAction => Text["ResignHand"],
+            SettleHandAction => Text["SettleHand"],
+            _ => action.GetType().Name
+        };
+    }
+
+    private string PassTargetLabel()
+    {
+        return CurrentPassRecipient() is { } recipient
+            ? $"{Text["ChooseCardFor"]} {PlayerName(game.Players.Single(player => player.Id == recipient))}"
+            : Text["GuidePassCards"];
+    }
+
+    private IReadOnlyList<TalonExchangeItem> TalonExchangeItems()
+    {
+        if (talonExchangePreview is null)
+        {
+            return Array.Empty<TalonExchangeItem>();
+        }
+
+        var owner = game.Bidder ?? game.CurrentPlayer;
+        if (owner != PlayerId.First)
+        {
+            return Array.Empty<TalonExchangeItem>();
+        }
+
+        if (awaitingHumanPlayStartConfirmation)
+        {
+            return Array.Empty<TalonExchangeItem>();
+        }
+
+        var passes = game.PassedCards.Where(pass => pass.From == owner);
+
+        var items = passes
+            .Select(pass => new TalonExchangeItem(
+                pass.Card,
+                TalonCardRecipientLabel(pass.To),
+                pass.To))
+            .ToList();
+
+        return items.ToArray();
+    }
+
+    private string TalonExchangeTitleLabel()
+    {
+        return Text.CurrentCulture.TwoLetterISOLanguageName == "bg" ? "Коз:" : "Trump:";
+    }
+
+    private string TalonExchangeTitleTrump()
+    {
+        return game.Trump is null ? Text["NoTrumpShort"] : SuitSymbol(game.Trump.Value);
+    }
+
+    private string TalonExchangeTitleTrumpClass()
+    {
+        return game.Trump is Suit.Hearts or Suit.Diamonds
+            ? "talon-exchange-trump red"
+            : "talon-exchange-trump";
+    }
+
+    private bool ShouldShowTalonExchangeTitle()
+    {
+        var owner = game.Bidder ?? game.CurrentPlayer;
+        return owner == PlayerId.First || botTalonPreviewStage >= 1;
+    }
+
+    private bool ShouldShowTalonExchangePreview()
+    {
+        if (talonExchangePreview is null)
+        {
+            return false;
+        }
+
+        if (IsBotOpenedTalonVisible())
+        {
+            return false;
+        }
+
+        if (awaitingHumanPlayStartConfirmation)
+        {
+            return true;
+        }
+
+        return awaitingTalonExchangeConfirmation
+            || game.CurrentPlayer != PlayerId.First
+            || game.Phase is not (GamePhase.ChooseTrump or GamePhase.PassCards);
+    }
+
+    private bool ShouldShowTalonZone()
+    {
+        return game.Phase != GamePhase.GameOver
+            && (game.Talon.Count > 0 || IsBotOpenedTalonVisible());
+    }
+
+    private bool ShouldShowOpenTalonCards()
+    {
+        return IsBotOpenedTalonVisible()
+            || game.Phase == GamePhase.RevealTalon
+            || game.Phase == GamePhase.ChooseTrump;
+    }
+
+    private IReadOnlyList<Card> TalonZoneCards()
+    {
+        return IsBotOpenedTalonVisible()
+            ? talonExchangePreview ?? Array.Empty<Card>()
+            : game.Talon;
+    }
+
+    private bool IsBotOpenedTalonVisible()
+    {
+        return talonExchangePreview is not null
+            && game.Bidder != PlayerId.First
+            && botTalonPreviewStage == 0
+            && !awaitingTalonExchangeConfirmation
+            && game.Phase == GamePhase.ChooseTrump;
+    }
+
+    private string TalonExchangePreviewClass()
+    {
+        var cssClass = "bot-reveal-preview";
+        if (game.Bidder != PlayerId.First && botTalonPreviewStage >= 1)
+        {
+            cssClass += " bot-reveal-preview-compact";
+        }
+
+        return cssClass;
+    }
+
+    private Card? PendingPassedCardFor(PlayerId player)
+    {
+        if (awaitingHumanPlayStartConfirmation && game.Bidder == PlayerId.First)
+        {
+            return game.PassedCards
+                .FirstOrDefault(pass => pass.From == PlayerId.First && pass.To == player)
+                ?.Card;
+        }
+
+        return pendingBotTalonPasses?
+            .FirstOrDefault(pass => pass.Recipient == player)
+            ?.Card;
+    }
+
+    private bool ShouldPauseBeforeHumanFirstPlay()
+    {
+        return !autoPlayHuman
+            && game.Phase == GamePhase.PlayingTricks
+            && game.Bidder == PlayerId.First
+            && game.CurrentPlayer == PlayerId.First
+            && game.CurrentTrick.Count == 0
+            && game.CompletedTricks.Count == 0
+            && game.PassedCards.Count(pass => pass.From == PlayerId.First) == 2
+            && game.ActionLog.LastOrDefault() is PassCardAction { Player: { } player } && player == PlayerId.First;
+    }
+
+    private string SetupReviewLabel(string bg, string en)
+    {
+        return Text.CurrentCulture.TwoLetterISOLanguageName == "bg" ? bg : en;
+    }
+
+    private string TalonCardRecipientLabel(PlayerId recipient)
+    {
+        if (recipient == PlayerId.First)
+        {
+            return Text.CurrentCulture.TwoLetterISOLanguageName == "bg" ? "За мен" : "For me";
+        }
+
+        return Text.CurrentCulture.TwoLetterISOLanguageName == "bg"
+            ? $"За {PlayerName(recipient)}"
+            : $"For {PlayerName(recipient)}";
+    }
+
+    private string TalonExchangeCardsClass()
+    {
+        return ShouldUseDirectedTalonCards()
+            ? "talon-exchange-cards talon-exchange-directed"
+            : "talon-exchange-cards";
+    }
+
+    private bool ShouldUseDirectedTalonCards()
+    {
+        return game.Bidder == PlayerId.First || game.Bidder != PlayerId.First && awaitingTalonExchangeConfirmation;
+    }
+
+    private string TalonExchangeCardClass(TalonExchangeItem item)
+    {
+        var target = "to-stay";
+        if (item.Recipient == PlayerId.First)
+        {
+            target = "to-human";
+        }
+        else if (item.Recipient == PlayerId.Second)
+        {
+            target = "to-top";
+        }
+        else if (item.Recipient == PlayerId.Third)
+        {
+            target = "to-left";
+        }
+
+        return $"talon-exchange-card {target}";
+    }
+
+    private string TalonCardStaysLabel(PlayerId owner)
+    {
+        return Text.CurrentCulture.TwoLetterISOLanguageName == "bg"
+            ? $"Остава за {PlayerName(owner)}"
+            : $"Stays for {PlayerName(owner)}";
+    }
+
+    private string? BidStatusLabel(PlayerId player)
+    {
+        if (game.Phase != GamePhase.Bidding)
+        {
+            return null;
+        }
+
+        var bid = game.Bids.LastOrDefault(bid => bid.Player == player);
+        if (bid is not null)
+        {
+            return BidLabel(bid.Amount, bid.MarriageSuit);
+        }
+
+        return game.CurrentPlayer == player ? "..." : null;
+    }
+
+    private string? MarriageFlashLabel(PlayerId player)
+    {
+        return marriageFlash?.Player == player ? $"+{marriageFlash.Points}" : null;
+    }
+
+    private string? MarriageBonusLabel(PlayerId player)
+    {
+        var points = game.MarriageAnnouncements
+            .Where(announcement => announcement.Player == player)
+            .Sum(announcement => announcement.Points);
+
+        return points > 0 ? $"+{points}" : null;
+    }
+
+    private string ActionButtonClass(GameAction action)
+    {
+        return action switch
+        {
+            BidAction { Amount: > 0 } => "btn btn-primary btn-sm command-button",
+            RevealTalonAction or ChooseTrumpAction or SettleHandAction => "btn btn-success btn-sm command-button",
+            ResignHandAction => "btn btn-outline-danger btn-sm command-button",
+            _ => "btn btn-outline-secondary btn-sm command-button"
+        };
+    }
+
+    private static string TrumpButtonClass(Suit? suit)
+    {
+        return suit switch
+        {
+            Suit.Clubs => "trump-button trump-clubs",
+            Suit.Diamonds => "trump-button trump-diamonds",
+            Suit.Hearts => "trump-button trump-hearts",
+            Suit.Spades => "trump-button trump-spades",
+            null => "trump-button trump-no-trump",
+            _ => "trump-button"
+        };
+    }
+
+    private string PhaseLabel(GamePhase phase)
+    {
+        return phase switch
+        {
+            GamePhase.Bidding => Text["Bidding"],
+            GamePhase.RevealTalon => Text["RevealTalon"],
+            GamePhase.ChooseTrump => Text["ChooseTrump"],
+            GamePhase.PassCards => Text["PassCards"],
+            GamePhase.PlayingTricks => Text["PlayingTricks"],
+            GamePhase.ScoringHand => Text["ScoringHand"],
+            GamePhase.GameOver => Text["GameOver"],
+            _ => phase.ToString()
+        };
+    }
+
+    private string PhaseGuide()
+    {
+        if (game.CurrentPlayer != PlayerId.First && game.Phase != GamePhase.ScoringHand && game.Phase != GamePhase.GameOver)
+        {
+            return $"{PlayerName(game.Players.Single(player => player.Id == game.CurrentPlayer))}...";
+        }
+
+        return game.Phase switch
+        {
+            GamePhase.Bidding => Text["GuideBidding"],
+            GamePhase.RevealTalon => Text["GuideRevealTalon"],
+            GamePhase.ChooseTrump => Text["GuideChooseTrump"],
+            GamePhase.PassCards => CurrentPassRecipient() is { } recipient
+                ? $"{Text["GuidePassCards"]} {Text["PassTo"]} {PlayerName(game.Players.Single(player => player.Id == recipient))}."
+                : Text["GuidePassCards"],
+            GamePhase.PlayingTricks => Text["GuidePlayingTricks"],
+            GamePhase.ScoringHand => Text["GuideScoringHand"],
+            GamePhase.GameOver => Text["GuideGameOver"],
+            _ => string.Empty
+        };
+    }
+
+    private string SettlementDelta(PlayerId player)
+    {
+        if (game.Settlement.Kind != SettlementKind.None)
+        {
+            var settledDelta = game.Settlement.ScoreDeltas[player];
+            return settledDelta >= 0 ? $"+{settledDelta}" : settledDelta.ToString();
+        }
+
+        var bidderFailed = game.Bidder is not null
+            && game.WinningBid is not null
+            && game.HandScores[game.Bidder.Value] < game.WinningBid.Value;
+
+        var delta = bidderFailed && game.Bidder == player
+            ? -game.WinningBid!.Value
+            : game.HandScores[player];
+
+        return delta >= 0 ? $"+{delta}" : delta.ToString();
+    }
+
+    private string HandResultClass(PlayerId player)
+    {
+        if (game.Settlement.Kind == SettlementKind.BidderResigned && game.Settlement.Bidder == player)
+        {
+            return "failed-bidder";
+        }
+
+        if (game.Bidder != player || game.WinningBid is null)
+        {
+            return string.Empty;
+        }
+
+        return game.HandScores[player] < game.WinningBid.Value
+            ? "failed-bidder"
+            : "successful-bidder";
+    }
+
+    private int ContractProgressPercent()
+    {
+        if (game.Bidder is null || game.WinningBid is null || game.WinningBid.Value <= 0)
+        {
+            return 0;
+        }
+
+        return Math.Clamp(game.HandScores[game.Bidder.Value] * 100 / game.WinningBid.Value, 0, 100);
+    }
+
+    private bool HumanCompletedContract()
+    {
+        return game.Phase == GamePhase.ScoringHand
+            && game.Bidder == PlayerId.First
+            && game.WinningBid is { } bid
+            && game.HandScores[PlayerId.First] >= bid
+            && game.Settlement.Kind != SettlementKind.BidderResigned;
+    }
+
+    private string PlayerName(PlayerSeat player)
+    {
+        if (player.Id == PlayerId.First)
+        {
+            return string.IsNullOrWhiteSpace(humanName) ? Text["HumanPlayer"] : humanName.Trim();
+        }
+
+        return BotNameValue(player.Id);
+    }
+
+    private string PlayerName(PlayerId player)
+    {
+        return PlayerName(game.Players.Single(seat => seat.Id == player));
+    }
+
+    private string PersonaLabel(PlayerId player)
+    {
+        return PersonaStyle(PersonaFor(player));
+    }
+
+    private string PlayerSetupLabel(PlayerId player)
+    {
+        return player == PlayerId.Second ? Text["OpponentOne"] : Text["OpponentTwo"];
+    }
+
+    private string PersonaName(PlayerPersona persona)
+    {
+        return Text.CurrentCulture.TwoLetterISOLanguageName == "bg" ? persona.BulgarianName : persona.EnglishName;
+    }
+
+    private string PersonaOptionLabel(PlayerPersona persona)
+    {
+        return $"{PersonaName(persona)} ({PersonaStyle(persona)})";
+    }
+
+    private string PersonaStyle(PlayerPersona persona)
+    {
+        return Text.CurrentCulture.TwoLetterISOLanguageName == "bg" ? persona.BulgarianStyle : persona.EnglishStyle;
+    }
+
+    private string PersonaKey(PlayerId player)
+    {
+        return personaKeys.TryGetValue(player, out var key) ? key : PersonaOptions[0].Key;
+    }
+
+    private PlayerPersona PersonaFor(PlayerId player)
+    {
+        var key = PersonaKey(player);
+        return PersonaOptions.FirstOrDefault(persona => persona.Key == key) ?? PersonaOptions[0];
+    }
+
+    private void SetPersona(PlayerId player, string? key)
+    {
+        if (!CanEditSetup())
+        {
+            return;
+        }
+
+        var previousSuggestion = SuggestedPersonaName(player);
+        if (!string.IsNullOrWhiteSpace(key) && PersonaOptions.Any(persona => persona.Key == key))
+        {
+            personaKeys[player] = key;
+            if (string.IsNullOrWhiteSpace(BotRawName(player)) || string.Equals(BotRawName(player), previousSuggestion, StringComparison.Ordinal))
+            {
+                botNames[player] = SuggestedPersonaName(player);
+                _ = SaveBotNamesAsync();
+            }
+            _ = SavePersonasAsync();
+        }
+    }
+
+    private string BotRawName(PlayerId player)
+    {
+        return botNames.TryGetValue(player, out var name) ? name : string.Empty;
+    }
+
+    private string BotNameValue(PlayerId player)
+    {
+        var name = BotRawName(player).Trim();
+        return string.IsNullOrWhiteSpace(name) ? SuggestedPersonaName(player) : name;
+    }
+
+    private string SuggestedPersonaName(PlayerId player)
+    {
+        return PersonaName(PersonaFor(player));
+    }
+
+    private void SetBotName(PlayerId player, string? name)
+    {
+        if (!CanEditSetup())
+        {
+            return;
+        }
+
+        botNames[player] = name?.Trim() ?? string.Empty;
+        _ = SaveBotNamesAsync();
+    }
+
+    private double BotDelaySeconds(PlayerId player)
+    {
+        return botDelaySeconds.TryGetValue(player, out var delay) && BotDelayOptions.Contains(delay) ? delay : 0.5;
+    }
+
+    private int BotDelayMilliseconds(PlayerId player)
+    {
+        return (int)(BotDelaySeconds(player) * 1000);
+    }
+
+    private int ActionDelay(int milliseconds)
+    {
+        return autoPlayHuman ? Math.Min(milliseconds, 150) : milliseconds;
+    }
+
+    private HeuristicPlayerAgent BotFor(PlayerId player)
+    {
+        return new HeuristicPlayerAgent(BotSkill(player));
+    }
+
+    private BotSkillLevel BotSkill(PlayerId player)
+    {
+        return botSkillLevels.TryGetValue(player, out var level) ? level : BotSkillLevel.Advanced;
+    }
+
+    private string BotSkillLabel(BotSkillLevel level)
+    {
+        var bg = Text.CurrentCulture.TwoLetterISOLanguageName == "bg";
+        return level switch
+        {
+            BotSkillLevel.Beginner => bg ? "\u041d\u0430\u0447\u0438\u043d\u0430\u0435\u0449" : "Beginner",
+            BotSkillLevel.Intermediate => bg ? "\u0421\u0440\u0435\u0434\u043d\u043e \u043d\u0438\u0432\u043e" : "Intermediate",
+            BotSkillLevel.Advanced => bg ? "\u041d\u0430\u043f\u0440\u0435\u0434\u043d\u0430\u043b" : "Advanced",
+            _ => level.ToString()
+        };
+    }
+
+    private void SetBotSkill(PlayerId player, string? value)
+    {
+        if (!CanEditSetup())
+        {
+            return;
+        }
+
+        if (Enum.TryParse<BotSkillLevel>(value, out var level) && BotSkillOptions.Contains(level))
+        {
+            botSkillLevels[player] = level;
+            _ = SaveBotSkillsAsync();
+        }
+    }
+
+    private string DelayLabel(double delay)
+    {
+        if (delay == 0)
+        {
+            return Text.CurrentCulture.TwoLetterISOLanguageName == "bg" ? "Незабавно" : "Instant";
+        }
+
+        var value = delay.ToString(delay % 1 == 0 ? "0" : "0.0", System.Globalization.CultureInfo.InvariantCulture);
+        return Text.CurrentCulture.TwoLetterISOLanguageName == "bg"
+            ? $"{value} {(delay == 1 ? "секунда" : "секунди")}"
+            : $"{value} {(delay == 1 ? "second" : "seconds")}";
+    }
+
+    private void SetBotDelay(PlayerId player, string? value)
+    {
+        if (!CanEditSetup())
+        {
+            return;
+        }
+
+        if (double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var delay)
+            && BotDelayOptions.Contains(delay))
+        {
+            botDelaySeconds[player] = delay;
+            _ = SaveBotDelaysAsync();
+        }
+    }
+
+    private void OnHumanNameChanged(ChangeEventArgs args)
+    {
+        if (!CanEditSetup())
+        {
+            return;
+        }
+
+        humanName = args.Value?.ToString()?.Trim() ?? string.Empty;
+        _ = SaveHumanNameAsync();
+    }
+
+    private PlayerSeat Winner()
+    {
+        var winner = game.GameScores.OrderByDescending(pair => pair.Value).First().Key;
+        return game.Players.Single(player => player.Id == winner);
+    }
+
+    private static string RankLabel(Rank rank) => rank switch
+    {
+        Rank.Nine => "9",
+        Rank.Jack => "J",
+        Rank.Queen => "Q",
+        Rank.King => "K",
+        Rank.Ten => "10",
+        Rank.Ace => "A",
+        _ => rank.ToString()
+    };
+
+    private static int CardSortKey(Card card)
+    {
+        return SuitSortValue(card.Suit) * 10 + RankSortValue(card.Rank);
+    }
+
+    private static IReadOnlyList<Card> SortHandForDisplay(IReadOnlyList<Card> cards)
+    {
+        var suitOrder = AlternatingSuitOrder(cards.Select(card => card.Suit).Distinct()).ToArray();
+        var suitRanks = suitOrder
+            .Select((suit, index) => new { suit, index })
+            .ToDictionary(pair => pair.suit, pair => pair.index);
+
+        return cards
+            .OrderBy(card => suitRanks[card.Suit])
+            .ThenBy(card => RankSortValue(card.Rank))
+            .ToArray();
+    }
+
+    private static IEnumerable<Suit> AlternatingSuitOrder(IEnumerable<Suit> suits)
+    {
+        var present = suits.ToHashSet();
+        var black = new Queue<Suit>(new[] { Suit.Clubs, Suit.Spades }.Where(present.Contains));
+        var red = new Queue<Suit>(new[] { Suit.Diamonds, Suit.Hearts }.Where(present.Contains));
+        bool? lastWasRed = null;
+
+        while (black.Count > 0 || red.Count > 0)
+        {
+            var takeRed = ShouldTakeRedSuit(red.Count, black.Count, lastWasRed);
+            if (takeRed && red.Count > 0)
+            {
+                yield return red.Dequeue();
+                lastWasRed = true;
+                continue;
+            }
+
+            if (black.Count > 0)
+            {
+                yield return black.Dequeue();
+                lastWasRed = false;
+                continue;
+            }
+
+            yield return red.Dequeue();
+            lastWasRed = true;
+        }
+    }
+
+    private static bool ShouldTakeRedSuit(int redCount, int blackCount, bool? lastWasRed)
+    {
+        if (redCount == 0)
+        {
+            return false;
+        }
+
+        if (blackCount == 0)
+        {
+            return true;
+        }
+
+        if (lastWasRed is true)
+        {
+            return false;
+        }
+
+        if (lastWasRed is false)
+        {
+            return true;
+        }
+
+        return redCount > blackCount;
+    }
+
+    private static int SuitSortValue(Suit suit) => suit switch
+    {
+        Suit.Clubs => 0,
+        Suit.Diamonds => 1,
+        Suit.Spades => 2,
+        Suit.Hearts => 3,
+        _ => 9
+    };
+
+    private static int TrumpSuitSortValue(Suit? suit) => suit switch
+    {
+        Suit.Clubs => 0,
+        Suit.Diamonds => 1,
+        Suit.Hearts => 2,
+        Suit.Spades => 3,
+        null => 4,
+        _ => 9
+    };
+
+    private static int RankSortValue(Rank rank) => rank switch
+    {
+        Rank.Ace => 0,
+        Rank.Ten => 1,
+        Rank.King => 2,
+        Rank.Queen => 3,
+        Rank.Jack => 4,
+        Rank.Nine => 5,
+        _ => 9
+    };
+
+    private static string SuitSymbol(Suit suit) => suit switch
+    {
+        Suit.Clubs => "\u2663",
+        Suit.Diamonds => "\u2666",
+        Suit.Hearts => "\u2665",
+        Suit.Spades => "\u2660",
+        _ => suit.ToString()
+    };
+
+    private static string TrumpSymbol(Suit? suit) => suit is null ? "-" : SuitSymbol(suit.Value);
+
+    private string SuitName(Suit suit) => suit switch
+    {
+        Suit.Clubs => Text.CurrentCulture.TwoLetterISOLanguageName == "bg" ? "\u0441\u043f\u0430\u0442\u0438\u044f" : "clubs",
+        Suit.Diamonds => Text.CurrentCulture.TwoLetterISOLanguageName == "bg" ? "\u043a\u0430\u0440\u043e" : "diamonds",
+        Suit.Hearts => Text.CurrentCulture.TwoLetterISOLanguageName == "bg" ? "\u043a\u0443\u043f\u0430" : "hearts",
+        Suit.Spades => Text.CurrentCulture.TwoLetterISOLanguageName == "bg" ? "\u043f\u0438\u043a\u0430" : "spades",
+        _ => suit.ToString()
+    };
+
+    private string TrumpName(Suit? suit)
+    {
+        return suit is null ? Text["NoTrump"] : SuitName(suit.Value);
+    }
+
+    private string TrumpContractLabel()
+    {
+        return game.Trump is not null
+            ? SuitSymbol(game.Trump.Value)
+            : game.Phase == GamePhase.ChooseTrump
+                ? "?"
+                : Text["NoTrumpShort"];
+    }
+
+    private string TrumpContractClass()
+    {
+        return game.Trump switch
+        {
+            Suit.Hearts or Suit.Diamonds => "contract-trump-symbol red",
+            Suit.Clubs or Suit.Spades => "contract-trump-symbol black",
+            null => "contract-trump-symbol neutral",
+            _ => "contract-trump-symbol"
+        };
+    }
+
+    private string ContractZoneClass()
+    {
+        return contractAnnouncementAnimating ? "contract-zone contract-zone-announce" : "contract-zone";
+    }
+
+    private string CardLabel(Card card)
+    {
+        return Text.CurrentCulture.TwoLetterISOLanguageName == "bg"
+            ? $"{RankLabel(card.Rank)} {SuitName(card.Suit)}"
+            : $"{RankLabel(card.Rank)} of {SuitName(card.Suit)}";
+    }
+
+    private static string CompactCardLabel(Card card)
+    {
+        return $"{RankLabel(card.Rank)}{SuitSymbol(card.Suit)}";
+    }
+
+    private string HandCardLabel(Card card)
+    {
+        return $"{Text["YourHand"]}: {CardLabel(card)}";
+    }
+
+    private string CardClass(Card card)
+    {
+        var color = card.Suit is Suit.Diamonds or Suit.Hearts ? "red" : "black";
+        var playable = IsPlayable(card) ? "playable" : "idle";
+        return $"playing-card {color} {playable}";
+    }
+
+    private static Card CardForAction(GameAction action)
+    {
+        return action switch
+        {
+            PlayCardAction play => play.Card,
+            PassCardAction pass => pass.Card,
+            _ => throw new InvalidOperationException("Action does not contain a card.")
+        };
+    }
+
+    private static RenderFragment CardInner(Card card) => builder =>
+    {
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", "card-corner top");
+        builder.OpenElement(2, "strong");
+        builder.AddContent(3, RankLabel(card.Rank));
+        builder.CloseElement();
+        builder.OpenElement(4, "span");
+        builder.AddContent(5, SuitSymbol(card.Suit));
+        builder.CloseElement();
+        builder.CloseElement();
+
+        builder.OpenElement(6, "span");
+        builder.AddAttribute(7, "class", "card-center");
+        builder.AddContent(8, SuitSymbol(card.Suit));
+        builder.CloseElement();
+
+        builder.OpenElement(9, "span");
+        builder.AddAttribute(10, "class", "card-corner bottom");
+        builder.OpenElement(11, "strong");
+        builder.AddContent(12, RankLabel(card.Rank));
+        builder.CloseElement();
+        builder.OpenElement(13, "span");
+        builder.AddContent(14, SuitSymbol(card.Suit));
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    private static RenderFragment CardView(Card card, string cssClass) => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", $"{cssClass} {(card.Suit is Suit.Diamonds or Suit.Hearts ? "red" : "black")}");
+        builder.AddContent(2, CardInner(card));
+        builder.CloseElement();
+    };
+
+    private RenderFragment TrickPile(PlayerId player, string cssClass) => builder =>
+    {
+        var count = TakenTrickCount(player);
+        if (count == 0)
+        {
+            return;
+        }
+
+        var sequence = 0;
+
+        builder.OpenElement(sequence++, "div");
+        builder.AddAttribute(sequence++, "class", $"trick-pile {cssClass}");
+        builder.AddAttribute(sequence++, "aria-label", $"{PlayerName(player)}: {count} {Text["CompletedTricks"]}");
+        for (var index = 0; index < Math.Min(3, count); index++)
+        {
+            builder.OpenElement(sequence++, "span");
+            builder.AddAttribute(sequence++, "class", "trick-pile-card");
+            builder.AddAttribute(sequence++, "style", $"--pile-index: {index}");
+            builder.CloseElement();
+        }
+
+        builder.OpenElement(sequence++, "strong");
+        builder.AddContent(sequence++, count);
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    private int TakenTrickCount(PlayerId player)
+    {
+        return game.CompletedTricks.Count(trick => trick.Winner == player);
+    }
+
+    private RenderFragment OpponentSeat(PlayerId playerId, string cssClass) => builder =>
+    {
+        var player = game.Players.Single(seat => seat.Id == playerId);
+        var sequence = 0;
+
+        builder.OpenElement(sequence++, "article");
+        builder.AddAttribute(sequence++, "class", $"{cssClass} {SeatClass(player)}");
+
+        builder.OpenElement(sequence++, "div");
+        builder.AddAttribute(sequence++, "class", "bot-seat-info");
+        builder.OpenElement(sequence++, "strong");
+        builder.AddContent(sequence++, PlayerName(player));
+        builder.CloseElement();
+        if (MarriageFlashLabel(player.Id) is { } flash)
+        {
+            builder.OpenElement(sequence++, "span");
+            builder.AddAttribute(sequence++, "class", "marriage-flash");
+            builder.AddContent(sequence++, flash);
+            builder.CloseElement();
+        }
+        if (MarriageBonusLabel(player.Id) is { } bonus)
+        {
+            builder.OpenElement(sequence++, "span");
+            builder.AddAttribute(sequence++, "class", "bonus-badge");
+            builder.AddContent(sequence++, bonus);
+            builder.CloseElement();
+        }
+        if (BidStatusLabel(player.Id) is { } bidStatus)
+        {
+            builder.OpenElement(sequence++, "span");
+            builder.AddAttribute(sequence++, "class", "bid-bubble");
+            builder.AddContent(sequence++, bidStatus);
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+
+        builder.OpenElement(sequence++, "div");
+        builder.AddAttribute(sequence++, "class", "bot-card-row");
+
+        builder.OpenElement(sequence++, "div");
+        builder.AddAttribute(sequence++, "class", "bot-card-stack");
+        builder.AddAttribute(sequence++, "aria-label", $"{PlayerName(player)}: {game.GetHand(player.Id).Count} {Text["Cards"]}");
+        for (var index = 0; index < game.GetHand(player.Id).Count; index++)
+        {
+            builder.OpenElement(sequence++, "span");
+            builder.AddAttribute(sequence++, "class", "card-back");
+            builder.AddAttribute(sequence++, "style", $"--card-index: {index}");
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+
+        if (PendingPassedCardFor(player.Id) is { } pendingCard)
+        {
+            builder.OpenElement(sequence++, "div");
+            builder.AddAttribute(sequence++, "class", $"pending-passed-card pending-passed-card-{player.Id.Value}");
+            builder.AddContent(sequence++, CardView(pendingCard, "mini-card"));
+            builder.CloseElement();
+        }
+
+        builder.AddContent(sequence++, TrickPile(player.Id, player.Id == PlayerId.Second ? "trick-pile-top" : "trick-pile-left"));
+
+        builder.CloseElement();
+
+        builder.CloseElement();
+    };
+
+    private void SetCulture(string culture)
+    {
+        Text.SetCulture(culture);
+        _ = Js.InvokeVoidAsync("localStorage.setItem", CultureKey, culture);
+    }
+
+    private void OnCultureChanged(ChangeEventArgs args)
+    {
+        SetCulture(args.Value?.ToString() ?? "bg");
+    }
+
+    private string BidLabel(int? amount, Suit? marriageSuit)
+    {
+        if (amount is null)
+        {
+            return Text["Pass"];
+        }
+
+        return marriageSuit is null ? amount.Value.ToString() : $"{amount.Value} {SuitSymbol(marriageSuit.Value)}";
+    }
+
+    private string BidMarriageButtonClass(Suit suit)
+    {
+        var selected = bidMarriageSuit == suit ? " selected" : string.Empty;
+        var color = suit is Suit.Diamonds or Suit.Hearts ? " red" : " black";
+        return $"bid-marriage-button{selected}{color}";
+    }
+
+    private void ShowRules()
+    {
+        rulesVisible = true;
+    }
+
+    private void HideRules()
+    {
+        rulesVisible = false;
+    }
+
+    private IReadOnlyList<string> RulesText()
+    {
+        return Text.CurrentCulture.TwoLetterISOLanguageName == "bg"
+            ?
+            [
+                "Карти и сила: играе се с 24 карти - 9, J, Q, K, 10, A от всяка боя. Силата е 9, J, Q, K, 10, A, като A е най-силна.",
+                "Точки в картите: A носи 11 точки, 10 носи 10, K носи 4, Q носи 3, J носи 2, а 9 не носи точки.",
+                "Раздаване: всеки играч получава по 7 карти, а 3 карти остават в талона. Играят трима играчи, всеки за себе си.",
+                "Наддаване: играчите по ред казват анонс или пас. След като играч пасува, няма право да се върне в наддаването за тази ръка. Следващият анонс трябва да е поне с 1 по-висок от текущия.",
+                "Анонс над 120: за да вдигнеш над 120, трябва да имаш K+Q от една боя и да обявиш коя е боята. Ако имаш повече от един такъв брак, избираш кой точно подкрепя анонса.",
+                "Печеливш анонсьор: играчът с най-висок анонс взема талона, избира коз или безкоз, и дава по една карта на всеки от другите двама играчи.",
+                "Коз и безкоз: ако има коз, картите от козовата боя бият всички други бои. При безкоз няма боя, която да бие останалите.",
+                "Ход на взятка: първата изиграна карта определя исканата боя. Ако имаш карта от исканата боя, трябва да играеш такава карта.",
+                "Цакане: ако нямаш от исканата боя и има коз, трябва да играеш коз, ако имаш. При безкоз няма цакане.",
+                "Качване: качването е задължително само когато се играе коз. Ако вече има изигран коз и имаш по-силен коз, трябва да го играеш. При не-козова боя не е задължително да качваш.",
+                "Печелене на взятка: ако има коз в текущата взятка, печели най-силният коз. Ако няма коз, печели най-силната карта от исканата боя. Победителят води следващата взятка.",
+                "Брак: K+Q от една боя може да се обяви само когато играчът е под ръка, тоест той играе първи в текущата взятка. Ако водиш взятката и играеш K или Q от необявен брак, играта го обявява автоматично. Бракът носи 40 точки в коз и 20 точки в друга боя. При безкоз всички бракове носят по 20 точки.",
+                "Трупай: защитник може да поиска помощ от другия защитник, когато е на ход, може да спечели текущата взятка, а партньорът му още не е играл. Партньорът се опитва да даде висока точкова карта.",
+                "Край на ръката: след всички взятки се сравняват точките на анонсьора с неговия анонс. Ако ги е докарал, всички записват спечелените си точки.",
+                "Неуспешен анонс: ако анонсьорът не събере обявените точки, той губи стойността на анонса, а защитниците записват своите точки.",
+                "Отказване: анонсьорът може да откаже ръката. Тогава той губи анонса, а другите двама играчи записват по 25 точки.",
+                "Край на играта: играта продължава с нови раздавания, докато някой достигне целевия резултат."
+            ]
+            :
+            [
+                "Cards and rank: the game uses 24 cards - 9, J, Q, K, 10, A in each suit. Rank order is 9, J, Q, K, 10, A, with A highest.",
+                "Card points: A is 11 points, 10 is 10, K is 4, Q is 3, J is 2, and 9 is 0.",
+                "Deal: each player gets 7 cards and 3 cards stay in the talon. Three players play individually.",
+                "Bidding: players bid or pass in turn. Once a player passes, they cannot bid again in that hand. The next bid must be at least 1 higher than the current bid.",
+                "Bids above 120: to bid above 120, the player must hold a K+Q pair in one suit and declare that suit. If several pairs are available, the player chooses which one supports the bid.",
+                "Winning bidder: the highest bidder takes the talon, chooses trump or no trump, then passes one card to each opponent.",
+                "Trump and no trump: with trump, cards from the trump suit beat all other suits. In no trump, no suit beats the others.",
+                "Trick play: the first card played sets the led suit. If you have a card in the led suit, you must follow suit.",
+                "Trumping: if you cannot follow suit and there is a trump suit, you must play trump if you have one. In no trump there is no trumping.",
+                "Overtrumping: overtaking is mandatory only when trump is being played. If a trump has been played and you have a higher trump, you must play it. You do not have to overtake in a non-trump suit.",
+                "Winning a trick: if any trump is played, the highest trump wins. Otherwise the highest card in the led suit wins. The winner leads the next trick.",
+                "Marriage: a K+Q pair in one suit can be announced only when the player is leading the trick, meaning they play first in that trick. If you lead and play K or Q from an unannounced marriage, the game announces it automatically. It scores 40 in trump and 20 in another suit. In no trump, every marriage scores 20.",
+                "Trupa: a defender can ask the other defender for help when they are on turn, can win the current trick, and their partner has not played yet. The partner tries to put in a high-point card.",
+                "End of hand: after all tricks, the bidder's points are compared to the bid. If the bidder made the contract, all players score their won points.",
+                "Failed bid: if the bidder does not reach the bid, the bid value is subtracted from the bidder, while defenders score their own points.",
+                "Resigning: the bidder may resign the hand. The bidder loses the bid value and the two opponents score 25 points each.",
+                "End of game: play continues with new deals until a player reaches the target score."
+            ];
+    }
+
+    private string LanguageButtonClass(string culture)
+    {
+        return Text.CurrentCulture.TwoLetterISOLanguageName == culture
+            ? "language-button active"
+            : "language-button";
+    }
+
+    private async Task SaveAsync()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(SavedGame.FromState(game));
+        await Js.InvokeVoidAsync("localStorage.setItem", SaveKey, json);
+    }
+
+    private async Task<bool> LoadUnfinishedGameAsync()
+    {
+        var json = await Js.InvokeAsync<string?>("localStorage.getItem", SaveKey);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return false;
+        }
+
+        SavedGame? saved;
+        GameState restored;
+        try
+        {
+            saved = System.Text.Json.JsonSerializer.Deserialize<SavedGame>(json);
+            if (saved is null)
+            {
+                return false;
+            }
+
+            restored = saved.Restore();
+        }
+        catch
+        {
+            return false;
+        }
+
+        if (saved.Actions.Count == 0 || restored.Phase == GamePhase.GameOver)
+        {
+            return false;
+        }
+
+        game = restored;
+        bidInput = null;
+        bidInputMinimum = null;
+        bidMarriageSuit = null;
+        bidError = null;
+        talonExchangePreview = null;
+        botTalonPreviewStage = 0;
+        awaitingTalonExchangeConfirmation = false;
+        awaitingHumanPlayStartConfirmation = false;
+        pendingResignConfirmation = false;
+        marriageFlash = null;
+        tableTrickPreview = null;
+        tableTrickCollecting = false;
+        autoPlayHuman = false;
+        skipNextAutoplayDelay = false;
+        setupLocked = true;
+        await SaveSetupLockedAsync();
+        await AdvanceBotsAsync();
+        StateHasChanged();
+        return true;
+    }
+
+    private async Task ClearSaveAsync()
+    {
+        await Js.InvokeVoidAsync("localStorage.removeItem", SaveKey);
+        setupLocked = false;
+        bidInput = null;
+        bidInputMinimum = null;
+        bidMarriageSuit = null;
+        bidError = null;
+        talonExchangePreview = null;
+        botTalonPreviewStage = 0;
+        awaitingTalonExchangeConfirmation = false;
+        awaitingHumanPlayStartConfirmation = false;
+        pendingResignConfirmation = false;
+        marriageFlash = null;
+        tableTrickPreview = null;
+        tableTrickCollecting = false;
+        autoPlayHuman = false;
+        skipNextAutoplayDelay = false;
+        await SaveSetupLockedAsync();
+        game = GameState.StartNewHand(Random.Shared.Next());
+        await AdvanceBotsAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadCultureAsync()
+    {
+        var culture = await Js.InvokeAsync<string?>("localStorage.getItem", CultureKey);
+        if (!string.IsNullOrWhiteSpace(culture))
+        {
+            Text.SetCulture(culture);
+        }
+    }
+
+    private async Task SavePersonasAsync()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(personaKeys);
+        await Js.InvokeVoidAsync("localStorage.setItem", PersonaStorageKey, json);
+    }
+
+    private async Task LoadPersonasAsync()
+    {
+        var json = await Js.InvokeAsync<string?>("localStorage.getItem", PersonaStorageKey);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return;
+        }
+
+        var saved = System.Text.Json.JsonSerializer.Deserialize<Dictionary<PlayerId, string>>(json);
+        if (saved is null)
+        {
+            return;
+        }
+
+        foreach (var (player, key) in saved)
+        {
+            if (PersonaOptions.Any(persona => persona.Key == key))
+            {
+                personaKeys[player] = key;
+            }
+        }
+    }
+
+    private async Task SaveBotNamesAsync()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(botNames);
+        await Js.InvokeVoidAsync("localStorage.setItem", BotNameStorageKey, json);
+    }
+
+    private async Task LoadBotNamesAsync()
+    {
+        var json = await Js.InvokeAsync<string?>("localStorage.getItem", BotNameStorageKey);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            foreach (var player in game.Players.Where(player => player.Kind == PlayerKind.Bot))
+            {
+                botNames[player.Id] = SuggestedPersonaName(player.Id);
+            }
+            return;
+        }
+
+        var saved = System.Text.Json.JsonSerializer.Deserialize<Dictionary<PlayerId, string>>(json);
+        if (saved is null)
+        {
+            return;
+        }
+
+        foreach (var player in game.Players.Where(player => player.Kind == PlayerKind.Bot))
+        {
+            botNames[player.Id] = saved.TryGetValue(player.Id, out var name) && !string.IsNullOrWhiteSpace(name)
+                ? name.Trim()
+                : SuggestedPersonaName(player.Id);
+        }
+    }
+
+    private async Task SaveBotDelaysAsync()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(botDelaySeconds);
+        await Js.InvokeVoidAsync("localStorage.setItem", BotDelayStorageKey, json);
+    }
+
+    private async Task LoadBotDelaysAsync()
+    {
+        var json = await Js.InvokeAsync<string?>("localStorage.getItem", BotDelayStorageKey);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return;
+        }
+
+        var saved = System.Text.Json.JsonSerializer.Deserialize<Dictionary<PlayerId, double>>(json);
+        if (saved is null)
+        {
+            return;
+        }
+
+        foreach (var (player, delay) in saved)
+        {
+            if (BotDelayOptions.Contains(delay))
+            {
+                botDelaySeconds[player] = delay;
+            }
+        }
+    }
+
+    private async Task SaveBotSkillsAsync()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(botSkillLevels);
+        await Js.InvokeVoidAsync("localStorage.setItem", BotSkillStorageKey, json);
+    }
+
+    private async Task LoadBotSkillsAsync()
+    {
+        var json = await Js.InvokeAsync<string?>("localStorage.getItem", BotSkillStorageKey);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return;
+        }
+
+        var saved = System.Text.Json.JsonSerializer.Deserialize<Dictionary<PlayerId, BotSkillLevel>>(json);
+        if (saved is null)
+        {
+            return;
+        }
+
+        foreach (var (player, level) in saved)
+        {
+            if (BotSkillOptions.Contains(level))
+            {
+                botSkillLevels[player] = level;
+            }
+        }
+    }
+
+    private async Task SaveHumanNameAsync()
+    {
+        await Js.InvokeVoidAsync("localStorage.setItem", HumanNameStorageKey, humanName.Trim());
+    }
+
+    private async Task LoadHumanNameAsync()
+    {
+        humanName = await Js.InvokeAsync<string?>("localStorage.getItem", HumanNameStorageKey) ?? string.Empty;
+    }
+
+    private async Task SaveSetupLockedAsync()
+    {
+        await Js.InvokeVoidAsync("localStorage.setItem", SetupLockedStorageKey, setupLocked ? "true" : "false");
+    }
+
+    private async Task LoadSetupLockedAsync()
+    {
+        var value = await Js.InvokeAsync<string?>("localStorage.getItem", SetupLockedStorageKey);
+        setupLocked = string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed record PlayerPersona(
+        string Key,
+        string EnglishName,
+        string BulgarianName,
+        string EnglishStyle,
+        string BulgarianStyle);
+
+    private sealed record MarriageBonusPreview(PlayerId Player, int Points);
+
+    private sealed record MarriageCardPreview(PlayerId Player, Suit Suit);
+
+    private sealed record TalonExchangeItem(Card Card, string Label, PlayerId? Recipient = null);
+}
+

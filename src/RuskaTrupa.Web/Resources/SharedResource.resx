@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Ai" xml:space="preserve"><value>AI</value></data>
+  <data name="AutoSetup" xml:space="preserve"><value>Auto setup</value></data>
+  <data name="Bid" xml:space="preserve"><value>Bid</value></data>
+  <data name="Bot1" xml:space="preserve"><value>Bot 1</value></data>
+  <data name="Bot2" xml:space="preserve"><value>Bot 2</value></data>
+  <data name="Cards" xml:space="preserve"><value>cards</value></data>
+  <data name="CompletedTricks" xml:space="preserve"><value>Completed tricks</value></data>
+  <data name="CurrentPhase" xml:space="preserve"><value>Current phase</value></data>
+  <data name="CurrentPlayer" xml:space="preserve"><value>Current player</value></data>
+  <data name="CurrentScore" xml:space="preserve"><value>Current score</value></data>
+  <data name="CurrentTrick" xml:space="preserve"><value>Current trick</value></data>
+  <data name="Deal" xml:space="preserve"><value>Deal</value></data>
+  <data name="Deck" xml:space="preserve"><value>Deck</value></data>
+  <data name="EngineStatus" xml:space="preserve"><value>Engine status</value></data>
+  <data name="GameScore" xml:space="preserve"><value>Game score</value></data>
+  <data name="HandScore" xml:space="preserve"><value>Hand score</value></data>
+  <data name="HumanPlayer" xml:space="preserve"><value>You</value></data>
+  <data name="Language" xml:space="preserve"><value>Language</value></data>
+  <data name="NewDeal" xml:space="preserve"><value>New deal</value></data>
+  <data name="NoBid" xml:space="preserve"><value>None</value></data>
+  <data name="NotSelected" xml:space="preserve"><value>Not selected</value></data>
+  <data name="Points" xml:space="preserve"><value>pts</value></data>
+  <data name="Prototype" xml:space="preserve"><value>PWA prototype</value></data>
+  <data name="Seed" xml:space="preserve"><value>Seed</value></data>
+  <data name="Trump" xml:space="preserve"><value>Trump</value></data>
+  <data name="YourHand" xml:space="preserve"><value>Your hand</value></data>
+</root>

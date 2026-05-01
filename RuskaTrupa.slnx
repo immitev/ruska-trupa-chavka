@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RuskaTrupa.AI/RuskaTrupa.AI.csproj" />
+    <Project Path="src/RuskaTrupa.Core/RuskaTrupa.Core.csproj" />
+    <Project Path="src/RuskaTrupa.Web/RuskaTrupa.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RuskaTrupa.AI.Tests/RuskaTrupa.AI.Tests.csproj" />
+    <Project Path="tests/RuskaTrupa.Core.Tests/RuskaTrupa.Core.Tests.csproj" />
+  </Folder>
+</Solution>

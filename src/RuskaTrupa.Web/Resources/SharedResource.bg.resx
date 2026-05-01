@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Ai" xml:space="preserve"><value>ИИ</value></data>
+  <data name="AutoSetup" xml:space="preserve"><value>Авто подготовка</value></data>
+  <data name="Bid" xml:space="preserve"><value>Анонс</value></data>
+  <data name="Bot1" xml:space="preserve"><value>Бот 1</value></data>
+  <data name="Bot2" xml:space="preserve"><value>Бот 2</value></data>
+  <data name="Cards" xml:space="preserve"><value>карти</value></data>
+  <data name="CompletedTricks" xml:space="preserve"><value>Изиграни взятки</value></data>
+  <data name="CurrentPhase" xml:space="preserve"><value>Текуща фаза</value></data>
+  <data name="CurrentPlayer" xml:space="preserve"><value>На ход</value></data>
+  <data name="CurrentScore" xml:space="preserve"><value>Текущ резултат</value></data>
+  <data name="CurrentTrick" xml:space="preserve"><value>Текуща взятка</value></data>
+  <data name="Deal" xml:space="preserve"><value>Раздаване</value></data>
+  <data name="Deck" xml:space="preserve"><value>Тесте</value></data>
+  <data name="EngineStatus" xml:space="preserve"><value>Състояние на играта</value></data>
+  <data name="GameScore" xml:space="preserve"><value>Общ резултат</value></data>
+  <data name="HandScore" xml:space="preserve"><value>Резултат в ръката</value></data>
+  <data name="HumanPlayer" xml:space="preserve"><value>Ти</value></data>
+  <data name="Language" xml:space="preserve"><value>Език</value></data>
+  <data name="NewDeal" xml:space="preserve"><value>Ново раздаване</value></data>
+  <data name="NoBid" xml:space="preserve"><value>Няма</value></data>
+  <data name="NotSelected" xml:space="preserve"><value>Не е избран</value></data>
+  <data name="Points" xml:space="preserve"><value>т.</value></data>
+  <data name="Prototype" xml:space="preserve"><value>PWA прототип</value></data>
+  <data name="Seed" xml:space="preserve"><value>Seed</value></data>
+  <data name="Trump" xml:space="preserve"><value>Коз</value></data>
+  <data name="YourHand" xml:space="preserve"><value>Твоите карти</value></data>
+</root>
