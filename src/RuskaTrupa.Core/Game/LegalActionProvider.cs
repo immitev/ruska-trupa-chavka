@@ -178,6 +178,9 @@ public sealed class LegalActionProvider : ILegalActionProvider
 
     private static IEnumerable<GameAction> GetMarriageActions(GameState state, PlayerId player)
     {
+        var currentLeadSuit = state.CurrentTrick.Count == 0
+            ? (Suit?)null
+            : state.CurrentTrick[0].Card.Suit;
         var playableMarriageSuits = GetPlayCardActions(state, player)
             .OfType<PlayCardAction>()
             .Where(action => action.Card.Rank is Rank.King or Rank.Queen)
@@ -186,6 +189,11 @@ public sealed class LegalActionProvider : ILegalActionProvider
 
         foreach (var suit in GetMarriageSuits(state, player))
         {
+            if (currentLeadSuit is not null && suit != currentLeadSuit)
+            {
+                continue;
+            }
+
             if (!playableMarriageSuits.Contains(suit))
             {
                 continue;

@@ -426,7 +426,7 @@ public sealed class GameReducerTests
     }
 
     [Fact]
-    public void LegalActions_AllowMarriageWhenMarriageSuitCanBePlayed()
+    public void LegalActions_AllowMarriageOnlyInCurrentTrickSuit()
     {
         var state = GameState.StartNewHand(1) with
         {
@@ -451,7 +451,7 @@ public sealed class GameReducerTests
         };
 
         legal = new LegalActionProvider().GetLegalActions(state, PlayerId.Third);
-        Assert.Contains(legal, action => action is AnnounceMarriageAction marriage && marriage.Suit == Suit.Spades);
+        Assert.DoesNotContain(legal, action => action is AnnounceMarriageAction marriage && marriage.Suit == Suit.Spades);
 
         state = state with
         {
@@ -470,6 +470,24 @@ public sealed class GameReducerTests
 
         legal = new LegalActionProvider().GetLegalActions(state, PlayerId.Third);
         Assert.DoesNotContain(legal, action => action is AnnounceMarriageAction);
+
+        state = state with
+        {
+            Hands = new Dictionary<PlayerId, IReadOnlyList<Card>>
+            {
+                [PlayerId.First] = Array.Empty<Card>(),
+                [PlayerId.Second] = Array.Empty<Card>(),
+                [PlayerId.Third] = new[]
+                {
+                    new Card(Suit.Hearts, Rank.King),
+                    new Card(Suit.Hearts, Rank.Queen),
+                    new Card(Suit.Spades, Rank.Ace)
+                }
+            }
+        };
+
+        legal = new LegalActionProvider().GetLegalActions(state, PlayerId.Third);
+        Assert.Contains(legal, action => action is AnnounceMarriageAction marriage && marriage.Suit == Suit.Hearts);
     }
 
     [Fact]
