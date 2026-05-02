@@ -33,6 +33,54 @@ public sealed class HeuristicPlayerAgentTests
     }
 
     [Fact]
+    public void DecideCardToPass_DiscardsBareTenBeforeSafeFaceCard()
+    {
+        var observation = new GameObservation(
+            PlayerId.Second,
+            new[]
+            {
+                new Card(Suit.Clubs, Rank.Ten),
+                new Card(Suit.Hearts, Rank.King),
+                new Card(Suit.Diamonds, Rank.Queen),
+                new Card(Suit.Spades, Rank.Jack)
+            },
+            EmptyPublicState(PlayerId.Second) with
+            {
+                Trump = Suit.Hearts,
+                Bidder = PlayerId.Second
+            });
+        var agent = new HeuristicPlayerAgent();
+
+        var decision = agent.DecideCardToPass(observation, new[] { new Card(Suit.Clubs, Rank.Ten), new Card(Suit.Diamonds, Rank.Queen) });
+
+        Assert.Equal(new Card(Suit.Clubs, Rank.Ten), decision.Action);
+    }
+
+    [Fact]
+    public void DecideCardToPass_KeepsTenProtectedByAce()
+    {
+        var observation = new GameObservation(
+            PlayerId.Second,
+            new[]
+            {
+                new Card(Suit.Clubs, Rank.Ace),
+                new Card(Suit.Clubs, Rank.Ten),
+                new Card(Suit.Diamonds, Rank.King),
+                new Card(Suit.Spades, Rank.Nine)
+            },
+            EmptyPublicState(PlayerId.Second) with
+            {
+                Trump = Suit.Hearts,
+                Bidder = PlayerId.Second
+            });
+        var agent = new HeuristicPlayerAgent();
+
+        var decision = agent.DecideCardToPass(observation, new[] { new Card(Suit.Clubs, Rank.Ten), new Card(Suit.Spades, Rank.Nine) });
+
+        Assert.Equal(new Card(Suit.Spades, Rank.Nine), decision.Action);
+    }
+
+    [Fact]
     public void DecideTrump_ReturnsOneOfTheLegalSuits()
     {
         var preview = NewGamePreview.Create(7);

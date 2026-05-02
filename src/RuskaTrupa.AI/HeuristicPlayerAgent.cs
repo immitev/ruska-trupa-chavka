@@ -159,7 +159,7 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
 
         var marriageCards = MarriageCards(observation.Hand).ToHashSet();
         var selected = legalCards
-            .OrderBy(card => PassCardPenalty(observation, card, marriageCards))
+            .OrderBy(card => PassCardKeepPenalty(observation, card, marriageCards))
             .ThenBy(card => card.PointValue)
             .ThenBy(card => card.Strength)
             .First();
@@ -413,15 +413,17 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
             + (hasMarriage ? 38 : 0);
     }
 
-    private static int PassCardPenalty(GameObservation observation, Card card, ISet<Card> marriageCards)
+    private static int PassCardKeepPenalty(GameObservation observation, Card card, ISet<Card> marriageCards)
     {
         var trump = observation.PublicState.Trump;
-        var suitLength = observation.Hand.Count(candidate => candidate.Suit == card.Suit);
+        var remainingHand = observation.Hand.Where(candidate => candidate != card).ToArray();
+        var suitLengthBefore = observation.Hand.Count(candidate => candidate.Suit == card.Suit);
+        var suitLengthAfter = remainingHand.Count(candidate => candidate.Suit == card.Suit);
         var penalty = card.PointValue * 4 + card.Strength;
 
         if (trump == card.Suit)
         {
-            penalty += 40 + card.Strength * 3;
+            penalty += 55 + card.Strength * 4;
         }
 
         if (card.Rank == Rank.Ace)
@@ -429,9 +431,14 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
             penalty += 45;
         }
 
-        if (card.Rank == Rank.Ten && observation.Hand.Any(other => other.Suit == card.Suit && other.Rank == Rank.Ace))
+        if (card.Rank == Rank.Ten)
         {
-            penalty += 28;
+            penalty += ProtectedTenValue(observation, card, remainingHand);
+        }
+
+        if (card.Rank is Rank.King or Rank.Queen && HasMarriage(remainingHand, card.Suit))
+        {
+            penalty += 26;
         }
 
         if (marriageCards.Contains(card))
@@ -439,12 +446,77 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
             penalty += 65;
         }
 
-        if (suitLength == 1 && trump != card.Suit)
+        if (suitLengthBefore == 1 && trump != card.Suit)
         {
             penalty -= 8;
         }
 
+        if (card.PointValue == 0 && trump != card.Suit)
+        {
+            penalty -= 8;
+        }
+
+        if (suitLengthAfter == 0 && trump != card.Suit)
+        {
+            penalty -= 6;
+        }
+
+        penalty -= RemainingHandControlValue(observation, remainingHand) / 6;
+
         return penalty;
+    }
+
+    private static int ProtectedTenValue(GameObservation observation, Card ten, IReadOnlyList<Card> remainingHand)
+    {
+        var trump = observation.PublicState.Trump;
+        var hasAce = remainingHand.Any(card => card.Suit == ten.Suit && card.Rank == Rank.Ace);
+        if (hasAce)
+        {
+            return 34;
+        }
+
+        if (trump == ten.Suit)
+        {
+            return 24;
+        }
+
+        var suitLengthAfter = remainingHand.Count(card => card.Suit == ten.Suit);
+        var unseenHigher = CountUnseenHigherCards(observation, ten);
+        if (suitLengthAfter == 0)
+        {
+            return -44;
+        }
+
+        if (suitLengthAfter <= 1 && unseenHigher > 0)
+        {
+            return -34;
+        }
+
+        return unseenHigher > 0 ? -18 : 10;
+    }
+
+    private static int RemainingHandControlValue(GameObservation observation, IReadOnlyList<Card> remainingHand)
+    {
+        var value = 0;
+        foreach (var card in remainingHand)
+        {
+            if (card.Rank == Rank.Ace)
+            {
+                value += 18;
+            }
+
+            if (card.Rank == Rank.Ten && remainingHand.Any(other => other.Suit == card.Suit && other.Rank == Rank.Ace))
+            {
+                value += 12;
+            }
+
+            if (observation.PublicState.Trump == card.Suit)
+            {
+                value += 4 + card.Strength;
+            }
+        }
+
+        return value;
     }
 
     private static int DefensiveLeadRisk(GameObservation observation, Card card)
