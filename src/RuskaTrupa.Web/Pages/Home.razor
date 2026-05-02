@@ -102,22 +102,7 @@
                 }
                 else
                 {
-                    @if (pendingNewGameConfirmation)
-                    {
-                        <div class="resign-confirm-panel" role="alertdialog" aria-live="polite">
-                            <strong>@Text["NewGame"]</strong>
-                            <span>@Text["ConfirmNewGame"]</span>
-                            <div class="resign-confirm-actions">
-                                <button class="btn btn-secondary btn-sm" type="button" @onclick="CancelNewGameConfirmation">
-                                    @Text["Cancel"]
-                                </button>
-                                <button class="btn btn-primary btn-sm" type="button" @onclick="ConfirmNewGameAsync">
-                                    @Text["NewGame"]
-                                </button>
-                            </div>
-                        </div>
-                    }
-                    else if (ShouldShowTalonExchangePreview())
+                    @if (ShouldShowTalonExchangePreview())
                     {
                         <div class="@TalonExchangePreviewClass()" aria-label="@Text["Talon"]">
                         @if (ShouldShowTalonExchangeTitle())
@@ -557,7 +542,6 @@
     private bool awaitingTalonExchangeConfirmation;
     private bool awaitingHumanPlayStartConfirmation;
     private bool pendingResignConfirmation;
-    private bool pendingNewGameConfirmation;
     private bool isHumanTalonCollecting;
     private bool isHumanTalonCollectingIn;
     private GameState? liveGameBeforeReplay;
@@ -620,26 +604,6 @@
     private Task NewDeal()
     {
         ExitReplay();
-        if (ShouldConfirmNewGame())
-        {
-            pendingNewGameConfirmation = true;
-            pendingResignConfirmation = false;
-            StateHasChanged();
-            return Task.CompletedTask;
-        }
-
-        newGameSetupVisible = true;
-        return Task.CompletedTask;
-    }
-
-    private void CancelNewGameConfirmation()
-    {
-        pendingNewGameConfirmation = false;
-    }
-
-    private Task ConfirmNewGameAsync()
-    {
-        pendingNewGameConfirmation = false;
         newGameSetupVisible = true;
         return Task.CompletedTask;
     }
@@ -685,7 +649,6 @@
         awaitingTalonExchangeConfirmation = false;
         awaitingHumanPlayStartConfirmation = false;
         pendingResignConfirmation = false;
-        pendingNewGameConfirmation = false;
         marriageFlash = null;
         marriageCardPreview = null;
         marriageCardPreview = null;
@@ -697,11 +660,6 @@
         game = GameState.StartNewHand(Random.Shared.Next());
         await AdvanceBotsAsync();
         _ = SaveAsync();
-    }
-
-    private bool ShouldConfirmNewGame()
-    {
-        return game.Phase != GamePhase.GameOver && game.ActionLog.Count > 0;
     }
 
     private async Task ApplyHumanAction(GameAction action)
