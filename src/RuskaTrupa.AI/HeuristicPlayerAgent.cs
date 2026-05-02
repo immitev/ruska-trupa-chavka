@@ -6,6 +6,9 @@ namespace RuskaTrupa.AI;
 public sealed class HeuristicPlayerAgent : IPlayerAgent
 {
     private const int MarriageBidThreshold = 120;
+    private static readonly IReadOnlyList<Card> FullDeck = Enum.GetValues<Suit>()
+        .SelectMany(suit => Enum.GetValues<Rank>().Select(rank => new Card(suit, rank)))
+        .ToArray();
 
     public HeuristicPlayerAgent()
         : this(BotSkillLevel.Advanced, BotPlayStyle.Balanced)
@@ -63,7 +66,7 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
 
         var requiredMargin = minimumBid switch
         {
-            <= 100 => -8,
+            <= 100 => -4,
             <= MarriageBidThreshold => 16,
             _ => 26
         };
@@ -79,7 +82,10 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
             requiredMargin += minimumBid <= 100 ? 4 : 8;
         }
 
-        if (profile.ContractEstimate < minimumBid + requiredMargin)
+        var hasMinimumBidControls = minimumBid <= 100
+            && profile.ControlCount >= 2
+            && profile.ContractEstimate >= minimumBid - 8;
+        if (profile.ContractEstimate < minimumBid + requiredMargin && !hasMinimumBidControls)
         {
             return new AgentDecision<int>(0, 0.78, "InsufficientContractMargin");
         }
@@ -210,9 +216,10 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
 
     private static Card ChooseLeadCard(GameObservation observation, IReadOnlyList<Card> legalCards)
     {
-        var bidder = observation.PublicState.Bidder;
+        var state = observation.PublicState;
+        var bidder = state.Bidder;
         var selfIsBidder = bidder == observation.Self;
-        var announcedMarriageSuits = observation.PublicState.MarriageAnnouncements
+        var announcedMarriageSuits = state.MarriageAnnouncements
             .Where(announcement => announcement.Player == observation.Self)
             .Select(announcement => announcement.Suit)
             .ToHashSet();
@@ -221,25 +228,48 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
             .Where(card => card.Rank is Rank.King or Rank.Queen
                 && !announcedMarriageSuits.Contains(card.Suit)
                 && HasMarriage(observation.Hand, card.Suit))
-            .OrderByDescending(card => observation.PublicState.Trump == card.Suit ? 40 : 20)
+            .OrderByDescending(card => state.Trump == card.Suit ? 40 : 20)
             .ThenBy(card => card.Rank == Rank.Queen ? 0 : 1)
+            .Select(card => (Card?)card)
             .FirstOrDefault();
-        if (unannouncedMarriageLead != default)
+        if (unannouncedMarriageLead is { } marriageLead)
         {
-            return unannouncedMarriageLead;
+            return marriageLead;
         }
 
         if (selfIsBidder)
         {
+            var masterWinner = legalCards
+                .Where(card => IsLeadControlCard(observation, card))
+                .OrderByDescending(card => card.PointValue)
+                .ThenByDescending(card => card.Strength)
+                .Select(card => (Card?)card)
+                .FirstOrDefault();
+            if (masterWinner is { } winner)
+            {
+                return winner;
+            }
+
             return legalCards
-                .OrderByDescending(card => LeadWinnerLikelihood(observation.Hand, card, observation.PublicState.Trump))
+                .OrderByDescending(card => LeadWinnerLikelihood(observation, card))
                 .ThenByDescending(card => card.PointValue)
                 .ThenByDescending(card => card.Strength)
                 .First();
         }
 
+        var bidderVoidPressure = legalCards
+            .Where(card => state.Bidder is { } bid && IsPlayerKnownVoidInSuit(state, bid, card.Suit))
+            .OrderBy(card => card.PointValue)
+            .ThenBy(card => card.Strength)
+            .Select(card => (Card?)card)
+            .FirstOrDefault();
+        if (bidderVoidPressure is { } pressureCard)
+        {
+            return pressureCard;
+        }
+
         return legalCards
-            .OrderBy(card => DefensiveLeadRisk(card, observation.PublicState.Trump))
+            .OrderBy(card => DefensiveLeadRisk(observation, card))
             .ThenBy(card => card.PointValue)
             .ThenBy(card => card.Strength)
             .First();
@@ -253,6 +283,7 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
         var partnerWinning = partner is not null && currentWinner == partner;
         var bidderWinning = state.Bidder is not null && currentWinner == state.Bidder;
         var trickPoints = state.CurrentTrick.Sum(played => played.Card.PointValue);
+        var bidderStillToPlay = state.Bidder is { } bidder && !HasPlayerPlayed(state, bidder);
 
         var winningCards = legalCards
             .Where(card => WouldWin(observation.Self, card, state.CurrentTrick, state.Trump))
@@ -260,8 +291,27 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
 
         if (partnerWinning)
         {
+            if (bidderStillToPlay && BidderMayStillOvertakeCurrentWinner(observation))
+            {
+                return legalCards
+                    .OrderBy(card => ThrowawayCost(card, state.Trump))
+                    .ThenBy(card => card.Strength)
+                    .First();
+            }
+
             return legalCards
                 .OrderByDescending(card => SafePointContribution(card))
+                .ThenBy(card => card.Strength)
+                .First();
+        }
+
+        if (winningCards.Length > 0
+            && IsLastToPlayInTrick(state)
+            && (state.Bidder == observation.Self || bidderWinning || trickPoints >= 5))
+        {
+            return winningCards
+                .OrderByDescending(card => card.PointValue)
+                .ThenBy(card => ThrowawayCost(card, state.Trump))
                 .ThenBy(card => card.Strength)
                 .First();
         }
@@ -280,6 +330,39 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
             .First();
     }
 
+    private static bool IsLastToPlayInTrick(PublicGameState state)
+    {
+        return state.CurrentTrick.Count >= PlayerOrder.All.Count - 1;
+    }
+
+    private static bool BidderMayStillOvertakeCurrentWinner(GameObservation observation)
+    {
+        var state = observation.PublicState;
+        if (state.Bidder is not { } bidder || HasPlayerPlayed(state, bidder) || state.CurrentTrick.Count == 0)
+        {
+            return false;
+        }
+
+        var currentWinner = DetermineTrickWinner(state.CurrentTrick, state.Trump);
+        var winningCard = state.CurrentTrick.First(played => played.Player == currentWinner).Card;
+        var leadSuit = state.CurrentTrick[0].Card.Suit;
+
+        if (state.Trump == winningCard.Suit)
+        {
+            return UnknownCards(observation)
+                .Any(card => card.Suit == winningCard.Suit && card.Strength > winningCard.Strength);
+        }
+
+        if (CountUnseenHigherCards(observation, winningCard) > 0)
+        {
+            return true;
+        }
+
+        return state.Trump is { } trump
+            && IsPlayerKnownVoidInSuit(state, bidder, leadSuit)
+            && UnknownCards(observation).Any(card => card.Suit == trump);
+    }
+
     private static HandProfile EvaluateHand(IReadOnlyList<Card> hand)
     {
         var rawPoints = hand.Sum(card => card.PointValue);
@@ -290,7 +373,8 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
         var bestSuit = Enum.GetValues<Suit>().Max(suit => SuitContractScore(hand, suit));
         var noTrump = rawPoints + aces * 13 + protectedTens * 8 + tens * 3;
         var estimate = Math.Max(bestSuit, noTrump) + marriages * 14;
-        return new HandProfile(Math.Clamp(estimate, 0, 180), marriages);
+        var controls = aces + protectedTens;
+        return new HandProfile(Math.Clamp(estimate, 0, 180), marriages, controls);
     }
 
     private static int TrumpChoiceScore(IReadOnlyList<Card> hand, Suit? suit)
@@ -363,8 +447,9 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
         return penalty;
     }
 
-    private static int DefensiveLeadRisk(Card card, Suit? trump)
+    private static int DefensiveLeadRisk(GameObservation observation, Card card)
     {
+        var trump = observation.PublicState.Trump;
         var risk = card.PointValue * 3 + card.Strength;
         if (trump == card.Suit)
         {
@@ -376,16 +461,33 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
             risk -= 20;
         }
 
-        return risk;
+        var unseenHigher = CountUnseenHigherCards(observation, card);
+        if (IsLeadControlCard(observation, card) && card.PointValue >= 10)
+        {
+            risk -= 45 + card.PointValue;
+        }
+
+        return risk + unseenHigher * 8;
     }
 
-    private static int LeadWinnerLikelihood(IReadOnlyList<Card> hand, Card card, Suit? trump)
+    private static int LeadWinnerLikelihood(GameObservation observation, Card card)
     {
-        var sameSuitHigher = hand.Count(other => other.Suit == card.Suit && other.Strength > card.Strength);
-        var score = card.Strength * 12 + card.PointValue - sameSuitHigher * 4;
+        var trump = observation.PublicState.Trump;
+        var unseenHigher = CountUnseenHigherCards(observation, card);
+        var remainingSuitCards = CountUnknownCardsInSuit(observation, card.Suit);
+        var score = card.Strength * 12 + card.PointValue - unseenHigher * 16 - remainingSuitCards;
         if (trump == card.Suit)
         {
             score += 14;
+        }
+
+        if (IsLeadControlCard(observation, card))
+        {
+            score += 80 + card.PointValue * 2;
+        }
+        else if (IsKnownMasterCard(observation, card))
+        {
+            score += 38 + card.PointValue;
         }
 
         if (card.Rank == Rank.Ace)
@@ -451,6 +553,64 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
             : PlayerOrder.All.Single(player => player != self && player != bidder.Value);
     }
 
+    private static bool HasPlayerPlayed(PublicGameState state, PlayerId player)
+    {
+        return state.CurrentTrick.Any(played => played.Player == player);
+    }
+
+    private static bool IsKnownMasterCard(GameObservation observation, Card card)
+    {
+        return CountUnseenHigherCards(observation, card) == 0;
+    }
+
+    private static bool IsLeadControlCard(GameObservation observation, Card card)
+    {
+        if (!IsKnownMasterCard(observation, card))
+        {
+            return false;
+        }
+
+        var trump = observation.PublicState.Trump;
+        if (trump is null || card.Suit == trump)
+        {
+            return true;
+        }
+
+        return !PlayerOrder.All
+            .Where(player => player != observation.Self)
+            .Any(player => IsPlayerKnownVoidInSuit(observation.PublicState, player, card.Suit));
+    }
+
+    private static int CountUnseenHigherCards(GameObservation observation, Card card)
+    {
+        return UnknownCards(observation)
+            .Count(candidate => candidate.Suit == card.Suit && candidate.Strength > card.Strength);
+    }
+
+    private static int CountUnknownCardsInSuit(GameObservation observation, Suit suit)
+    {
+        return UnknownCards(observation).Count(card => card.Suit == suit);
+    }
+
+    private static IEnumerable<Card> UnknownCards(GameObservation observation)
+    {
+        var known = observation.Hand
+            .Concat(observation.PublicState.CurrentTrick.Select(played => played.Card))
+            .Concat(observation.PublicState.CompletedTricks.SelectMany(trick => trick.Cards.Select(played => played.Card)))
+            .Concat(observation.PublicState.PassedCards.Select(pass => pass.Card))
+            .ToHashSet();
+
+        return FullDeck.Where(card => !known.Contains(card));
+    }
+
+    private static bool IsPlayerKnownVoidInSuit(PublicGameState state, PlayerId player, Suit suit)
+    {
+        return state.CompletedTricks.Any(trick =>
+            trick.Cards.Count > 0
+            && trick.Cards[0].Card.Suit == suit
+            && trick.Cards.Any(played => played.Player == player && played.Card.Suit != suit));
+    }
+
     private static IEnumerable<Card> MarriageCards(IEnumerable<Card> hand)
     {
         foreach (var group in hand.GroupBy(card => card.Suit))
@@ -483,5 +643,5 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
             });
     }
 
-    private sealed record HandProfile(int ContractEstimate, int MarriageCount);
+    private sealed record HandProfile(int ContractEstimate, int MarriageCount, int ControlCount);
 }

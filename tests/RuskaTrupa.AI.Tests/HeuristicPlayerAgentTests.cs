@@ -270,6 +270,32 @@ public sealed class HeuristicPlayerAgentTests
     }
 
     [Fact]
+    public void DecideCard_DoesNotFeedPointsToPartnerWhenBidderStillCanPlay()
+    {
+        var observation = new GameObservation(
+            PlayerId.Second,
+            new[]
+            {
+                new Card(Suit.Clubs, Rank.Ten),
+                new Card(Suit.Clubs, Rank.Nine),
+                new Card(Suit.Hearts, Rank.Ace)
+            },
+            EmptyPublicState(PlayerId.Second) with
+            {
+                Bidder = PlayerId.First,
+                CurrentTrick = new[]
+                {
+                    new PlayedCard(PlayerId.Third, new Card(Suit.Clubs, Rank.King))
+                }
+            });
+        var agent = new HeuristicPlayerAgent();
+
+        var decision = agent.DecideCard(observation, new[] { new Card(Suit.Clubs, Rank.Ten), new Card(Suit.Clubs, Rank.Nine) });
+
+        Assert.Equal(new Card(Suit.Clubs, Rank.Nine), decision.Action);
+    }
+
+    [Fact]
     public void DecideCard_WinsCheaplyWhenBidderCurrentlyWinning()
     {
         var observation = new GameObservation(
@@ -294,6 +320,68 @@ public sealed class HeuristicPlayerAgentTests
         var decision = agent.DecideCard(observation, new[] { new Card(Suit.Spades, Rank.Jack), new Card(Suit.Spades, Rank.Ace) });
 
         Assert.Equal(new Card(Suit.Spades, Rank.Jack), decision.Action);
+    }
+
+    [Fact]
+    public void DecideCard_LastToPlayTakesMaximumPointsWhenWinningIsGuaranteed()
+    {
+        var observation = new GameObservation(
+            PlayerId.Second,
+            new[]
+            {
+                new Card(Suit.Clubs, Rank.King),
+                new Card(Suit.Clubs, Rank.Ten),
+                new Card(Suit.Hearts, Rank.Nine)
+            },
+            EmptyPublicState(PlayerId.Second) with
+            {
+                Bidder = PlayerId.First,
+                CurrentTrick = new[]
+                {
+                    new PlayedCard(PlayerId.First, new Card(Suit.Clubs, Rank.Jack)),
+                    new PlayedCard(PlayerId.Third, new Card(Suit.Clubs, Rank.Queen))
+                }
+            });
+        var agent = new HeuristicPlayerAgent();
+
+        var decision = agent.DecideCard(observation, new[] { new Card(Suit.Clubs, Rank.King), new Card(Suit.Clubs, Rank.Ten) });
+
+        Assert.Equal(new Card(Suit.Clubs, Rank.Ten), decision.Action);
+    }
+
+    [Fact]
+    public void DecideCard_BidderLeadsRememberedMasterTen()
+    {
+        var observation = new GameObservation(
+            PlayerId.Second,
+            new[]
+            {
+                new Card(Suit.Clubs, Rank.Ten),
+                new Card(Suit.Hearts, Rank.King),
+                new Card(Suit.Diamonds, Rank.Nine)
+            },
+            EmptyPublicState(PlayerId.Second) with
+            {
+                Trump = Suit.Hearts,
+                Bidder = PlayerId.Second,
+                CurrentTrick = Array.Empty<PlayedCard>(),
+                CompletedTricks = new[]
+                {
+                    new CompletedTrick(
+                        new[]
+                        {
+                            new PlayedCard(PlayerId.First, new Card(Suit.Clubs, Rank.Ace)),
+                            new PlayedCard(PlayerId.Third, new Card(Suit.Clubs, Rank.Queen)),
+                            new PlayedCard(PlayerId.Second, new Card(Suit.Clubs, Rank.Jack))
+                        },
+                        PlayerId.First)
+                }
+            });
+        var agent = new HeuristicPlayerAgent();
+
+        var decision = agent.DecideCard(observation, new[] { new Card(Suit.Clubs, Rank.Ten), new Card(Suit.Hearts, Rank.King), new Card(Suit.Diamonds, Rank.Nine) });
+
+        Assert.Equal(new Card(Suit.Clubs, Rank.Ten), decision.Action);
     }
 
     private static PublicGameState EmptyPublicState(PlayerId currentPlayer)

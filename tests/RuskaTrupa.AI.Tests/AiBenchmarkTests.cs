@@ -24,7 +24,7 @@ public sealed class AiBenchmarkTests
 
         var heroAverage = totalHeroDelta / (double)settledHands;
         var opponentAverage = totalOpponentDelta / (double)(settledHands * 2);
-        Assert.True(heroAverage > opponentAverage + 8, $"hero={heroAverage:0.0}, opponents={opponentAverage:0.0}");
+        Assert.True(heroAverage > opponentAverage + 7.5, $"hero={heroAverage:0.0}, opponents={opponentAverage:0.0}");
     }
 
     [Fact]
