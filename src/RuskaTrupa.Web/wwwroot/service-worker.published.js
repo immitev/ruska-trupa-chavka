@@ -49,7 +49,11 @@ async function onFetch(event) {
         const shouldServeIndexHtml = event.request.mode === 'navigate'
             && !manifestUrlList.some(url => url === event.request.url);
 
-        const request = shouldServeIndexHtml ? 'index.html' : event.request;
+        const requestPath = new URL(event.request.url).pathname.replace(/\/+$/, '').toLowerCase();
+        const shouldServePlayIndex = requestPath.endsWith('/play') || requestPath.endsWith('/play/index.html');
+        const request = shouldServeIndexHtml
+            ? (shouldServePlayIndex ? 'play/index.html' : 'index.html')
+            : event.request;
         const cache = await caches.open(cacheName);
         cachedResponse = await cache.match(request);
     }

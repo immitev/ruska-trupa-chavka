@@ -1,38 +1,84 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bg">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ruska Trupa</title>
+    <title>Руска Трупа онлайн - игра с карти за трима</title>
+    <meta name="description" content="Играй Руска Трупа онлайн. Умерено популярна игра с карти за трима играчи, позната още като Чавка или Руска тройка." />
+    <meta name="keywords" content="Руска Трупа, Чавка, Руска тройка, игра с карти, карти за трима, онлайн карти, Сантасе, анонсиране, коз, взятки" />
+    <meta property="og:title" content="Играй руска трупа онлайн" />
+    <meta property="og:description" content="Играй руска трупа срещу двама ботове. Играта е позната още като Чавка или Руска тройка." />
     <base href="/" />
-    <link rel="preload" id="webassembly" />
-    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
+    <script>
+        (function () {
+            var path = window.location.pathname.replace(/\/+$/, "");
+            if (/\/play$/i.test(path)) {
+                window.location.replace(path.replace(/\/play$/i, "/play") + "/index.html" + window.location.search + window.location.hash);
+            }
+        })();
+    </script>
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
-    <link href="RuskaTrupa.Web.styles.css" rel="stylesheet" />
     <link href="manifest.webmanifest" rel="manifest" />
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
-    <script type="importmap"></script>
 </head>
 
 <body>
-    <div id="app">
-        <svg class="loading-progress">
-            <circle r="40%" cx="50%" cy="50%" />
-            <circle r="40%" cx="50%" cy="50%" />
-        </svg>
-        <div class="loading-progress-text"></div>
-    </div>
+    <main class="landing-page">
+        <section class="landing-hero" aria-labelledby="landing-title">
+            <div class="landing-table-scene" aria-hidden="true">
+                <div class="landing-card landing-card-top">
+                    <span>A</span>
+                    <strong>♠</strong>
+                </div>
+                <div class="landing-card landing-card-left red">
+                    <span>K</span>
+                    <strong>♥</strong>
+                </div>
+                <div class="landing-card landing-card-right">
+                    <span>Q</span>
+                    <strong>♣</strong>
+                </div>
+            </div>
 
-    <div id="blazor-error-ui">
-        An unhandled error has occurred.
-        <a href="." class="reload">Reload</a>
-        <span class="dismiss">Dismiss</span>
-    </div>
-    <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
-    <script>navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' });</script>
+            <div class="landing-hero-copy">
+                <img class="landing-mark" src="icon-192.png" alt="" width="72" height="72" />
+                <p class="landing-kicker">Една от най-обичаните игри с карти за трима</p>
+                <h1 id="landing-title">Руска Трупа</h1>
+                <p class="landing-lead">
+                    Класическа игра с 24 карти - наддавай, разигравай, забавлявай се.
+                    Интригата остава до последната карта!
+                </p>
+                <a class="landing-cta" href="play/index.html">Играй сега</a>
+            </div>
+        </section>
+
+        <section class="landing-section landing-intro" aria-labelledby="intro-title">
+            <div>
+                <p class="landing-eyebrow">Руска трупа</p>
+                <h2 id="intro-title">Забавна класическа игра на карти за трима.</h2>
+            </div>
+            <p>
+                Руска трупа, позната също под имената Чавка или Руска тройка, е игра със стандартни карти за игра,
+                която се играе от трима играчи. В тестето участват 24 карти, по сила от деветка до асо, както е при играта Сантасе.
+                <br /><br />
+                Цялата игра протича като поредица от разигравания. Трябва да внимаваш както с наддаването, така и с разиграването.
+                Изкараш ли по-малко от обявеното, си на минус. Печели първият, който достигне 501 точки.
+            </p>
+        </section>
+
+        <section class="landing-final" aria-labelledby="final-title">
+            <h2 id="final-title">Готов ли си за раздаване?</h2>
+            <a class="landing-cta landing-cta-light" href="play/index.html">Играй сега</a>
+        </section>
+    </main>
+    <script>
+        if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.register("service-worker.js", { updateViaCache: "none" });
+        }
+    </script>
 </body>
 
 </html>
