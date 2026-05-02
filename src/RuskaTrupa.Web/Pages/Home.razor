@@ -571,6 +571,8 @@
     private bool newGameSetupRequired;
     private bool autoPlayHuman;
     private bool skipNextAutoplayDelay;
+    private bool isAdvancingBots;
+    private bool rerunAdvanceBots;
     private int contractAnimationKey;
     private bool contractAnnouncementAnimating;
 
@@ -822,6 +824,30 @@
             return;
         }
 
+        if (isAdvancingBots)
+        {
+            rerunAdvanceBots = true;
+            return;
+        }
+
+        isAdvancingBots = true;
+        try
+        {
+            do
+            {
+                rerunAdvanceBots = false;
+                await AdvanceBotsCoreAsync();
+            }
+            while (rerunAdvanceBots && !IsReplayMode);
+        }
+        finally
+        {
+            isAdvancingBots = false;
+        }
+    }
+
+    private async Task AdvanceBotsCoreAsync()
+    {
         var guard = 0;
         while (guard++ < 200 && game.Phase != GamePhase.GameOver)
         {
@@ -837,6 +863,7 @@
                 break;
             }
 
+            var actionStamp = CurrentGameStamp();
             if (action is PlayCardAction play)
             {
                 var delay = game.GetHand(play.Player).Count <= 1 || skipNextAutoplayDelay
@@ -847,6 +874,11 @@
                 {
                     await Task.Delay(delay);
                 }
+            }
+
+            if (!IsCurrentGameStamp(actionStamp) || !IsActionStillLegal(action))
+            {
+                continue;
             }
 
             if (!autoPlayHuman && action is RevealTalonAction { Player: { } player } reveal && player == PlayerId.First)
@@ -932,6 +964,21 @@
         }
 
         return IsAutomaticTurn() ? ChooseBotAction() : null;
+    }
+
+    private bool IsActionStillLegal(GameAction action)
+    {
+        return LegalFor(action.Player).Contains(action);
+    }
+
+    private (int InitialSeed, int ActionCount, GamePhase Phase, PlayerId CurrentPlayer) CurrentGameStamp()
+    {
+        return (game.InitialSeed, game.ActionLog.Count, game.Phase, game.CurrentPlayer);
+    }
+
+    private bool IsCurrentGameStamp((int InitialSeed, int ActionCount, GamePhase Phase, PlayerId CurrentPlayer) stamp)
+    {
+        return CurrentGameStamp() == stamp;
     }
 
     private CompletedTrick? ApplyAction(GameAction action)
@@ -1020,7 +1067,8 @@
 
     private bool ShouldWaitForTalonExchangeConfirmation(GameAction action)
     {
-        return action is PassCardAction pass
+        return !autoPlayHuman
+            && action is PassCardAction pass
             && pass.Player != PlayerId.First
             && game.Phase != GamePhase.PassCards
             && talonExchangePreview is not null;
@@ -1028,7 +1076,8 @@
 
     private bool ShouldPreviewBotTalonPasses(GameAction action)
     {
-        return action is PassCardAction pass
+        return !autoPlayHuman
+            && action is PassCardAction pass
             && pass.Player != PlayerId.First
             && game.Phase == GamePhase.PassCards
             && talonExchangePreview is not null
@@ -2481,7 +2530,7 @@
 
     private int ActionDelay(int milliseconds)
     {
-        return autoPlayHuman ? Math.Min(milliseconds, 150) : milliseconds;
+        return autoPlayHuman ? Math.Min(milliseconds, 420) : milliseconds;
     }
 
     private HeuristicPlayerAgent BotFor(PlayerId player)

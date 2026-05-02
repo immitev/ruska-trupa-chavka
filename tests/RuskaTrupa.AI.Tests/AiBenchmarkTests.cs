@@ -27,6 +27,15 @@ public sealed class AiBenchmarkTests
         Assert.True(heroAverage > opponentAverage + 8, $"hero={heroAverage:0.0}, opponents={opponentAverage:0.0}");
     }
 
+    [Fact]
+    public void HeuristicAgents_CanAutoplayManyHandsWithoutIllegalActions()
+    {
+        for (var seed = 900; seed < 1_050; seed++)
+        {
+            PlayAutopilotHand(seed);
+        }
+    }
+
     private static IReadOnlyDictionary<PlayerId, int> PlaySettledHand(int seed, PlayerId heuristicPlayer)
     {
         var reducer = new GameReducer();
@@ -53,6 +62,38 @@ public sealed class AiBenchmarkTests
         }
 
         throw new InvalidOperationException($"Benchmark hand did not settle for seed {seed} and hero {heuristicPlayer}.");
+    }
+
+    private static void PlayAutopilotHand(int seed)
+    {
+        var reducer = new GameReducer();
+        var legal = new LegalActionProvider();
+        var agents = PlayerOrder.All.ToDictionary(
+            player => player,
+            player => new HeuristicPlayerAgent(
+                BotSkillLevel.Advanced,
+                player.Value switch
+                {
+                    2 => BotPlayStyle.Bold,
+                    3 => BotPlayStyle.Patient,
+                    _ => BotPlayStyle.Balanced
+                }));
+        var state = GameState.StartNewHand(seed);
+
+        for (var guard = 0; guard < 2_000; guard++)
+        {
+            var player = state.Phase == GamePhase.ScoringHand ? PlayerId.First : state.CurrentPlayer;
+            var actions = legal.GetLegalActions(state, player);
+            var action = ChooseHeuristicAction(state, agents[player], actions);
+            action = ExpandMarriageLead(state, legal, action, new Queue<GameAction>());
+            state = reducer.Apply(state, action);
+            if (action is SettleHandAction)
+            {
+                return;
+            }
+        }
+
+        throw new InvalidOperationException($"Autopilot hand did not settle for seed {seed}.");
     }
 
     private static GameAction ExpandMarriageLead(
