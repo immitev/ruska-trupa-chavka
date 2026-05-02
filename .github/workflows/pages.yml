@@ -1,0 +1,70 @@
+name: Publish GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore RuskaTrupa.slnx
+
+      - name: Test
+        run: dotnet test RuskaTrupa.slnx --configuration Release --no-restore
+
+      - name: Publish web app
+        run: dotnet publish src/RuskaTrupa.Web/RuskaTrupa.Web.csproj --configuration Release --no-restore --output artifacts/publish
+
+      - name: Prepare Pages artifact
+        shell: pwsh
+        run: |
+          $wwwroot = "artifacts/publish/wwwroot"
+          $basePath = "/${{ github.event.repository.name }}/"
+          $index = Join-Path $wwwroot "index.html"
+          (Get-Content $index -Raw).Replace('<base href="/" />', "<base href=""$basePath"" />") | Set-Content $index -NoNewline
+          Copy-Item $index (Join-Path $wwwroot "404.html")
+          New-Item -ItemType File -Path (Join-Path $wwwroot ".nojekyll") -Force | Out-Null
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: artifacts/publish/wwwroot
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
