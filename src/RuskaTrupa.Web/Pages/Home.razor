@@ -407,13 +407,22 @@
         <div class="modal-backdrop rules-backdrop" role="presentation" @onclick="HideRules">
             <section class="rules-modal" role="dialog" aria-modal="true" aria-labelledby="rules-title" @onclick:stopPropagation>
                 <header>
-                    <h2 id="rules-title">@Text["Rules"]</h2>
+                    <div class="rules-title-block">
+                        <span>@Text["AppName"]</span>
+                        <h2 id="rules-title">@Text["Rules"]</h2>
+                    </div>
                     <button class="modal-close-button" type="button" aria-label="@Text["Close"]" @onclick="HideRules">×</button>
                 </header>
                 <div class="rules-content">
-                    @foreach (var rule in RulesText())
+                    @foreach (var item in RulesText().Select((rule, index) => new { Rule = rule, Number = index + 1 }))
                     {
-                        <p>@rule</p>
+                        <article class="rule-card">
+                            <span class="rule-number">@item.Number</span>
+                            <div>
+                                <h3>@RuleTitle(item.Rule)</h3>
+                                <p>@RuleBody(item.Rule)</p>
+                            </div>
+                        </article>
                     }
                 </div>
             </section>
@@ -2970,6 +2979,20 @@
                 "Resigning: the bidder may resign the hand. The bidder loses the bid value and the two opponents score 25 points each.",
                 "End of game: play continues with new deals until a player reaches the target score."
             ];
+    }
+
+    private static string RuleTitle(string rule)
+    {
+        var separator = rule.IndexOf(':');
+        return separator > 0 ? rule[..separator] : rule;
+    }
+
+    private static string RuleBody(string rule)
+    {
+        var separator = rule.IndexOf(':');
+        return separator > 0 && separator + 1 < rule.Length
+            ? rule[(separator + 1)..].TrimStart()
+            : string.Empty;
     }
 
     private string LanguageButtonClass(string culture)
