@@ -576,9 +576,9 @@
 
     private static IReadOnlyList<PlayerPersona> PersonaOptions { get; } =
     [
-        new("mila", "Mila", "\u041c\u0438\u043b\u0430", "Balanced", "\u0411\u0430\u043b\u0430\u043d\u0441\u0438\u0440\u0430\u043d\u0430"),
+        new("mila", "Mila", "\u041c\u0438\u043b\u0430", "Balanced", "\u0411\u0430\u043b\u0430\u043d\u0441\u0438\u0440\u0430\u043d"),
         new("georgi", "Georgi", "\u0413\u0435\u043e\u0440\u0433\u0438", "Bold", "\u0421\u043c\u0435\u043b"),
-        new("elena", "Elena", "\u0415\u043b\u0435\u043d\u0430", "Patient", "\u0422\u044a\u0440\u043f\u0435\u043b\u0438\u0432\u0430"),
+        new("elena", "Elena", "\u0415\u043b\u0435\u043d\u0430", "Patient", "\u0422\u044a\u0440\u043f\u0435\u043b\u0438\u0432"),
         new("nikolay", "Nikolay", "\u041d\u0438\u043a\u043e\u043b\u0430\u0439", "Sharp", "\u041f\u0440\u0435\u0446\u0438\u0437\u0435\u043d")
     ];
 
@@ -1213,7 +1213,6 @@
     {
         if (game.Phase != GamePhase.PlayingTricks
             || game.CurrentPlayer != PlayerId.First
-            || game.CurrentTrick.Count != 0
             || card.Rank is not (Rank.King or Rank.Queen))
         {
             return null;
@@ -1479,7 +1478,7 @@
 
     private IReadOnlyList<GameAction> ExpandBotAction(GameAction action)
     {
-        if (action is not PlayCardAction play || game.CurrentTrick.Count != 0 || play.Card.Rank is not (Rank.King or Rank.Queen))
+        if (action is not PlayCardAction play || play.Card.Rank is not (Rank.King or Rank.Queen))
         {
             return [action];
         }
@@ -2952,7 +2951,7 @@
                 "Цакане: ако нямаш от исканата боя и има коз, трябва да играеш коз, ако имаш. При безкоз няма цакане.",
                 "Качване: качването е задължително само когато се играе коз. Ако вече има изигран коз и имаш по-силен коз, трябва да го играеш. При не-козова боя не е задължително да качваш.",
                 "Печелене на взятка: ако има коз в текущата взятка, печели най-силният коз. Ако няма коз, печели най-силната карта от исканата боя. Победителят води следващата взятка.",
-                "Брак: K+Q от една боя може да се обяви само когато играчът е под ръка, тоест той играе първи в текущата взятка. Ако водиш взятката и играеш K или Q от необявен брак, играта го обявява автоматично. Бракът носи 40 точки в коз и 20 точки в друга боя. При безкоз всички бракове носят по 20 точки.",
+                "Брак: K+Q от една боя може да се обяви, когато играчът изиграе K или Q от съответната боя. Не е нужно обявяващият да е под ръка или да играе първи във взятката. Бракът носи 40 точки, ако е от боята на коза, и 20 точки, ако не е от боята на коза. При безкоз всички бракове носят по 20 точки.",
                 "Трупай: защитник може да поиска помощ от другия защитник, когато е на ход, може да спечели текущата взятка, а партньорът му още не е играл. Партньорът се опитва да даде висока точкова карта.",
                 "Край на ръката: след всички взятки се сравняват точките на анонсьора с неговия анонс. Ако ги е докарал, всички записват спечелените си точки.",
                 "Неуспешен анонс: ако анонсьорът не събере обявените точки, той губи стойността на анонса, а защитниците записват своите точки.",
@@ -2972,7 +2971,7 @@
                 "Trumping: if you cannot follow suit and there is a trump suit, you must play trump if you have one. In no trump there is no trumping.",
                 "Overtrumping: overtaking is mandatory only when trump is being played. If a trump has been played and you have a higher trump, you must play it. You do not have to overtake in a non-trump suit.",
                 "Winning a trick: if any trump is played, the highest trump wins. Otherwise the highest card in the led suit wins. The winner leads the next trick.",
-                "Marriage: a K+Q pair in one suit can be announced only when the player is leading the trick, meaning they play first in that trick. If you lead and play K or Q from an unannounced marriage, the game announces it automatically. It scores 40 in trump and 20 in another suit. In no trump, every marriage scores 20.",
+                "Marriage: a K+Q pair in one suit can be announced when the player plays K or Q from that suit. The announcing player does not need to lead the trick. A marriage scores 40 points if it is in the trump suit and 20 points if it is not in the trump suit. In no trump, every marriage scores 20.",
                 "Trupa: a defender can ask the other defender for help when they are on turn, can win the current trick, and their partner has not played yet. The partner tries to put in a high-point card.",
                 "End of hand: after all tricks, the bidder's points are compared to the bid. If the bidder made the contract, all players score their won points.",
                 "Failed bid: if the bidder does not reach the bid, the bid value is subtracted from the bidder, while defenders score their own points.",

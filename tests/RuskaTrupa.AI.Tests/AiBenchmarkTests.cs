@@ -62,7 +62,6 @@ public sealed class AiBenchmarkTests
         Queue<GameAction> pendingActions)
     {
         if (action is not PlayCardAction play
-            || state.CurrentTrick.Count != 0
             || play.Card.Rank is not (Rank.King or Rank.Queen))
         {
             return action;
