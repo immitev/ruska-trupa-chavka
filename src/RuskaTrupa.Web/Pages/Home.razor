@@ -578,8 +578,7 @@
     [
         new("mila", "Mila", "\u041c\u0438\u043b\u0430", "Balanced", "\u0411\u0430\u043b\u0430\u043d\u0441\u0438\u0440\u0430\u043d"),
         new("georgi", "Georgi", "\u0413\u0435\u043e\u0440\u0433\u0438", "Bold", "\u0421\u043c\u0435\u043b"),
-        new("elena", "Elena", "\u0415\u043b\u0435\u043d\u0430", "Patient", "\u0422\u044a\u0440\u043f\u0435\u043b\u0438\u0432"),
-        new("nikolay", "Nikolay", "\u041d\u0438\u043a\u043e\u043b\u0430\u0439", "Sharp", "\u041f\u0440\u0435\u0446\u0438\u0437\u0435\u043d")
+        new("elena", "Elena", "\u0415\u043b\u0435\u043d\u0430", "Patient", "\u0422\u044a\u0440\u043f\u0435\u043b\u0438\u0432")
     ];
 
     private static IReadOnlyList<double> BotDelayOptions { get; } = [0.0, 0.5, 1.0, 1.5];
@@ -2487,7 +2486,17 @@
 
     private HeuristicPlayerAgent BotFor(PlayerId player)
     {
-        return new HeuristicPlayerAgent(BotSkill(player));
+        return new HeuristicPlayerAgent(BotSkill(player), BotPlayStyleFor(player));
+    }
+
+    private BotPlayStyle BotPlayStyleFor(PlayerId player)
+    {
+        return PersonaKey(player) switch
+        {
+            "georgi" => BotPlayStyle.Bold,
+            "elena" => BotPlayStyle.Patient,
+            _ => BotPlayStyle.Balanced
+        };
     }
 
     private BotSkillLevel BotSkill(PlayerId player)

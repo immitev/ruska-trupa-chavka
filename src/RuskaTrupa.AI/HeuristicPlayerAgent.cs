@@ -8,16 +8,24 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
     private const int MarriageBidThreshold = 120;
 
     public HeuristicPlayerAgent()
-        : this(BotSkillLevel.Advanced)
+        : this(BotSkillLevel.Advanced, BotPlayStyle.Balanced)
     {
     }
 
     public HeuristicPlayerAgent(BotSkillLevel skillLevel)
+        : this(skillLevel, BotPlayStyle.Balanced)
+    {
+    }
+
+    public HeuristicPlayerAgent(BotSkillLevel skillLevel, BotPlayStyle playStyle)
     {
         SkillLevel = skillLevel;
+        PlayStyle = playStyle;
     }
 
     public BotSkillLevel SkillLevel { get; }
+
+    public BotPlayStyle PlayStyle { get; }
 
     public AgentDecision<int> DecideOpeningBid(GameObservation observation, IReadOnlyList<int> legalBids)
     {
@@ -59,6 +67,12 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
             <= MarriageBidThreshold => 16,
             _ => 26
         };
+        requiredMargin += PlayStyle switch
+        {
+            BotPlayStyle.Bold => minimumBid <= 100 ? -6 : -8,
+            BotPlayStyle.Patient => minimumBid <= 100 ? 8 : 10,
+            _ => 0
+        };
 
         if (SkillLevel == BotSkillLevel.Intermediate)
         {
@@ -73,6 +87,12 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
         var maxRaise = SkillLevel == BotSkillLevel.Intermediate
             ? 1
             : minimumBid <= 110 ? 3 : 1;
+        maxRaise = PlayStyle switch
+        {
+            BotPlayStyle.Bold when SkillLevel == BotSkillLevel.Advanced => minimumBid <= 110 ? 7 : 3,
+            BotPlayStyle.Patient => 1,
+            _ => maxRaise
+        };
         var ceiling = Math.Min(profile.ContractEstimate - requiredMargin, minimumBid + maxRaise);
         var selected = nonPassBids.Where(bid => bid <= ceiling).DefaultIfEmpty(minimumBid).Max();
 

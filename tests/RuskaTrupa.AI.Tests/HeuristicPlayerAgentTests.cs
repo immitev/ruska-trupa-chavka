@@ -105,6 +105,35 @@ public sealed class HeuristicPlayerAgentTests
     }
 
     [Fact]
+    public void DecideOpeningBid_PlayStyleChangesRiskTolerance()
+    {
+        var observation = new GameObservation(
+            PlayerId.Second,
+            new[]
+            {
+                new Card(Suit.Clubs, Rank.Ace),
+                new Card(Suit.Clubs, Rank.Ten),
+                new Card(Suit.Clubs, Rank.King),
+                new Card(Suit.Clubs, Rank.Queen),
+                new Card(Suit.Hearts, Rank.Ace),
+                new Card(Suit.Hearts, Rank.Ten),
+                new Card(Suit.Spades, Rank.Ace)
+            },
+            EmptyPublicState(PlayerId.Second));
+        var legalBids = Enumerable.Range(101, 60).Prepend(0).ToArray();
+        var balanced = new HeuristicPlayerAgent(BotSkillLevel.Advanced, BotPlayStyle.Balanced);
+        var bold = new HeuristicPlayerAgent(BotSkillLevel.Advanced, BotPlayStyle.Bold);
+        var patient = new HeuristicPlayerAgent(BotSkillLevel.Advanced, BotPlayStyle.Patient);
+
+        var balancedBid = balanced.DecideOpeningBid(observation, legalBids).Action;
+        var boldBid = bold.DecideOpeningBid(observation, legalBids).Action;
+        var patientBid = patient.DecideOpeningBid(observation, legalBids).Action;
+
+        Assert.True(boldBid > balancedBid);
+        Assert.True(patientBid <= balancedBid);
+    }
+
+    [Fact]
     public void BeginnerSkill_PassesAfterExistingBid()
     {
         var observation = new GameObservation(
