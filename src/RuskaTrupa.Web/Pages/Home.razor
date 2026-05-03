@@ -437,22 +437,41 @@
                     </div>
                 </header>
                 <div class="setup-modal-content">
-                    <label>
-                        <span>@Text["YourName"]</span>
-                        <input value="@humanName" @onchange="OnHumanNameChanged" maxlength="24" />
-                    </label>
-                    <div class="setup-opponents-grid">
-                        @foreach (var player in game.Players.Where(player => player.Kind == PlayerKind.Bot))
+                    <div class="setup-tabs" role="tablist" aria-label="@Text["GameSetup"]">
+                        <button class="@SetupTabClass(0)" type="button" role="tab" aria-selected="@(setupTabIndex == 0)" @onclick="() => SelectSetupTab(0)">
+                            <strong>@Text["YourName"]</strong>
+                        </button>
+                        <button class="@SetupTabClass(1)" type="button" role="tab" aria-selected="@(setupTabIndex == 1)" @onclick="() => SelectSetupTab(1)">
+                            <strong>@Text["OpponentOne"]</strong>
+                        </button>
+                        <button class="@SetupTabClass(2)" type="button" role="tab" aria-selected="@(setupTabIndex == 2)" @onclick="() => SelectSetupTab(2)">
+                            <strong>@Text["OpponentTwo"]</strong>
+                        </button>
+                    </div>
+
+                    <div class="setup-tab-page">
+                        @if (setupTabIndex == 0)
                         {
-                            <section class="setup-opponent-card" aria-label="@PlayerSetupLabel(player.Id)">
-                                <h3>@PlayerSetupLabel(player.Id)</h3>
+                            <section class="setup-player-card" aria-label="@Text["YourName"]">
+                                <h3>@Text["YourName"]</h3>
+                                <label>
+                                    <span>@Text["YourName"]</span>
+                                    <input value="@humanName" @onchange="OnHumanNameChanged" maxlength="24" autocomplete="name" />
+                                </label>
+                            </section>
+                        }
+                        else
+                        {
+                            var playerId = setupTabIndex == 1 ? PlayerId.Second : PlayerId.Third;
+                            <section class="setup-opponent-card setup-tab-opponent-card" aria-label="@PlayerSetupLabel(playerId)">
+                                <h3>@PlayerSetupLabel(playerId)</h3>
                                 <label>
                                     <span>@Text["OpponentName"]</span>
-                                    <input value="@BotNameValue(player.Id)" @onchange="args => SetBotName(player.Id, args.Value?.ToString())" maxlength="24" placeholder="@SuggestedPersonaName(player.Id)" />
+                                    <input value="@BotNameValue(playerId)" @onchange="args => SetBotName(playerId, args.Value?.ToString())" maxlength="24" placeholder="@SuggestedPersonaName(playerId)" />
                                 </label>
                                 <label>
                                     <span>@Text["PlayStyle"]</span>
-                                    <select value="@PersonaKey(player.Id)" @onchange="args => SetPersona(player.Id, args.Value?.ToString())" aria-label="@Text["PlayStyle"]">
+                                    <select value="@PersonaKey(playerId)" @onchange="args => SetPersona(playerId, args.Value?.ToString())" aria-label="@Text["PlayStyle"]">
                                         @foreach (var persona in PersonaOptions)
                                         {
                                             <option value="@persona.Key">@PersonaStyle(persona)</option>
@@ -461,7 +480,7 @@
                                 </label>
                                 <label>
                                     <span>@Text["PlaySpeed"]</span>
-                                    <select value="@BotDelaySeconds(player.Id).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)" @onchange="args => SetBotDelay(player.Id, args.Value?.ToString())" aria-label="@Text["PlaySpeed"]">
+                                    <select value="@BotDelaySeconds(playerId).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)" @onchange="args => SetBotDelay(playerId, args.Value?.ToString())" aria-label="@Text["PlaySpeed"]">
                                         @foreach (var delay in BotDelayOptions)
                                         {
                                             <option value="@delay.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)">@DelayLabel(delay)</option>
@@ -470,7 +489,7 @@
                                 </label>
                                 <label>
                                     <span>@Text["BotSkill"]</span>
-                                    <select value="@BotSkill(player.Id).ToString()" @onchange="args => SetBotSkill(player.Id, args.Value?.ToString())" aria-label="@Text["BotSkill"]">
+                                    <select value="@BotSkill(playerId).ToString()" @onchange="args => SetBotSkill(playerId, args.Value?.ToString())" aria-label="@Text["BotSkill"]">
                                         @foreach (var level in BotSkillOptions)
                                         {
                                             <option value="@level.ToString()">@BotSkillLabel(level)</option>
@@ -480,12 +499,13 @@
                             </section>
                         }
                     </div>
-                    <div class="setup-modal-actions">
+
+                    <div class="setup-modal-actions setup-tab-actions">
                         @if (CanCancelNewGameSetup())
                         {
                             <button class="btn btn-secondary" type="button" @onclick="CancelNewGameSetup">@Text["Cancel"]</button>
                         }
-                        <button class="btn btn-primary" type="button" @onclick="StartConfiguredNewGame">@Text["StartGame"]</button>
+                        <button class="btn btn-primary" type="button" @onclick="StartConfiguredNewGame">@SetupReviewLabel("Да играем", "Let's play")</button>
                     </div>
                 </div>
             </section>
@@ -553,7 +573,7 @@
     private bool setupLocked;
     private bool rulesVisible;
     private bool newGameSetupVisible;
-    private bool newGameSetupRequired;
+    private int setupTabIndex;
     private bool autoPlayHuman;
     private bool skipNextAutoplayDelay;
     private bool isAdvancingBots;
@@ -591,8 +611,8 @@
             await LoadSetupLockedAsync();
             if (!await LoadUnfinishedGameAsync())
             {
-                newGameSetupRequired = true;
                 newGameSetupVisible = true;
+                setupTabIndex = 0;
             }
             isReady = true;
             StateHasChanged();
@@ -605,6 +625,7 @@
     private Task NewDeal()
     {
         ExitReplay();
+        setupTabIndex = 0;
         newGameSetupVisible = true;
         return Task.CompletedTask;
     }
@@ -617,12 +638,18 @@
         }
 
         newGameSetupVisible = false;
+        setupTabIndex = 0;
+    }
+
+    private void SelectSetupTab(int index)
+    {
+        setupTabIndex = Math.Clamp(index, 0, 2);
     }
 
     private async Task StartConfiguredNewGame()
     {
-        newGameSetupRequired = false;
         newGameSetupVisible = false;
+        setupTabIndex = 0;
         LockSetup();
         await StartFreshGameAsync();
         _ = SavePersonasAsync();
@@ -1948,6 +1975,16 @@
         return CanEditSetup() ? "setup-panel" : "setup-panel locked";
     }
 
+    private string SetupTabClass(int index)
+    {
+        if (setupTabIndex == index)
+        {
+            return "setup-tab current";
+        }
+
+        return "setup-tab";
+    }
+
     private bool ShowSetupPanel()
     {
         return !setupLocked || string.IsNullOrWhiteSpace(humanName);
@@ -1968,7 +2005,7 @@
 
     private bool CanCancelNewGameSetup()
     {
-        return !newGameSetupRequired;
+        return true;
     }
 
     private async Task EnableHumanAutoplayAsync()
