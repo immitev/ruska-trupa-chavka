@@ -49,6 +49,11 @@ jobs:
           (Get-Content $index -Raw).Replace('<base href="/" />', "<base href=""$basePath"" />") | Set-Content $index -NoNewline
           (Get-Content $playIndex -Raw).Replace('<base href="../" />', "<base href=""$basePath"" />") | Set-Content $playIndex -NoNewline
           (Get-Content $serviceWorker -Raw).Replace('const base = "/";', "const base = ""$basePath"";") | Set-Content $serviceWorker -NoNewline
+          $framework = Join-Path $wwwroot "_framework"
+          $blazorLoader = Get-ChildItem $framework -Filter "blazor.webassembly.*.js" | Select-Object -First 1
+          if ($blazorLoader -and -not (Test-Path (Join-Path $framework "blazor.webassembly.js"))) {
+            Copy-Item $blazorLoader.FullName (Join-Path $framework "blazor.webassembly.js")
+          }
           Remove-Item "$index.br", "$index.gz", "$playIndex.br", "$playIndex.gz", "$serviceWorker.br", "$serviceWorker.gz" -ErrorAction SilentlyContinue
           Copy-Item $index (Join-Path $wwwroot "404.html")
           New-Item -ItemType File -Path (Join-Path $wwwroot ".nojekyll") -Force | Out-Null
