@@ -343,6 +343,14 @@ code {
     width: 100%;
     padding-inline: clamp(1.25rem, 5vw, 5rem);
     background: #173a33;
+    row-gap: 2rem;
+}
+
+.landing-final-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
 }
 
 .landing-final h2 {
@@ -374,6 +382,39 @@ code {
     50% {
         margin-top: -0.8rem;
     }
+}
+
+.landing-final-footer {
+    grid-column: 1 / -1;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: clamp(1.4rem, 3vw, 2rem);
+    margin-top: 2.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: clamp(0.82rem, 1.1vw, 0.92rem);
+    line-height: 1.5;
+}
+
+.landing-final-footer p {
+    margin: 0;
+    max-width: 30rem;
+}
+
+.landing-final-footer a {
+    color: rgba(255, 248, 223, 0.85);
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: rgba(255, 248, 223, 0.3);
+    text-underline-offset: 0.15em;
+    transition: text-decoration-color 140ms ease;
+}
+
+.landing-final-footer a:hover,
+.landing-final-footer a:focus-visible {
+    text-decoration-color: #fff8df;
 }
 
 .game-shell {
