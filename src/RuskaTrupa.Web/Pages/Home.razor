@@ -103,7 +103,22 @@
                 }
                 else
                 {
-                    @if (ShouldShowTalonExchangePreview())
+                    @if (pendingResignConfirmation)
+                    {
+                        <div class="resign-confirm-panel" role="alertdialog" aria-live="polite">
+                            <strong>@SetupReviewLabel("Искаш да се откажеш?", "Resign this hand?")</strong>
+                            <span>@SetupReviewLabel("Опонентите ти ще получат по 25 точки.", "Your opponents will receive 25 points each.")</span>
+                            <div class="resign-confirm-actions">
+                                <button class="btn btn-secondary btn-sm" type="button" @onclick="CancelResignConfirmation">
+                                    @SetupReviewLabel("Продължи играта", "Continue game")
+                                </button>
+                                <button class="btn btn-danger btn-sm" type="button" @onclick="ConfirmResignAsync">
+                                    @SetupReviewLabel("Да, отказвам се", "Yes, resign")
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    else if (ShouldShowTalonExchangePreview())
                     {
                         <div class="@TalonExchangePreviewClass()" aria-label="@Text["Talon"]">
                         @if (ShouldShowTalonExchangeTitle())
@@ -189,21 +204,6 @@
                         {
                             <span class="bid-error">@bidError</span>
                         }
-                        </div>
-                    }
-                    else if (pendingResignConfirmation)
-                    {
-                        <div class="resign-confirm-panel" role="alertdialog" aria-live="polite">
-                            <strong>@SetupReviewLabel("Искаш да се откажеш?", "Resign this hand?")</strong>
-                            <span>@SetupReviewLabel("Опонентите ти ще получат по 25 точки.", "Your opponents will receive 25 points each.")</span>
-                            <div class="resign-confirm-actions">
-                                <button class="btn btn-secondary btn-sm" type="button" @onclick="CancelResignConfirmation">
-                                    @SetupReviewLabel("Продължи играта", "Continue game")
-                                </button>
-                                <button class="btn btn-danger btn-sm" type="button" @onclick="ConfirmResignAsync">
-                                    @SetupReviewLabel("Да, отказвам се", "Yes, resign")
-                                </button>
-                            </div>
                         </div>
                     }
                     else if (game.Phase == GamePhase.PassCards && CurrentPassRecipient() is not null)
@@ -782,7 +782,7 @@
 
     private async Task UseHumanCard(Card card)
     {
-        if (IsReplayMode || awaitingHumanPlayStartConfirmation)
+        if (IsReplayMode)
         {
             return;
         }
@@ -790,6 +790,11 @@
         var action = LegalFor(PlayerId.First)
             .FirstOrDefault(action => action is PlayCardAction play && play.Card == card
                 || action is PassCardAction pass && pass.Card == card);
+
+        if (awaitingHumanPlayStartConfirmation && action is not PlayCardAction)
+        {
+            return;
+        }
 
         if (action is not null)
         {
@@ -1874,13 +1879,14 @@
 
     private bool CanUseCard(Card card)
     {
-        if (IsReplayMode || autoPlayHuman || awaitingHumanPlayStartConfirmation)
+        if (IsReplayMode || autoPlayHuman)
         {
             return false;
         }
 
-        return LegalFor(PlayerId.First).Any(action => action is PlayCardAction play && play.Card == card
-            || action is PassCardAction pass && pass.Card == card);
+        return LegalFor(PlayerId.First).Any(action =>
+            action is PlayCardAction play && play.Card == card
+            || !awaitingHumanPlayStartConfirmation && action is PassCardAction pass && pass.Card == card);
     }
 
     private string SeatClass(PlayerSeat player)
