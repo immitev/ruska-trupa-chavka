@@ -42,7 +42,7 @@ jobs:
         shell: pwsh
         run: |
           $wwwroot = "artifacts/publish/wwwroot"
-          $basePath = "/${{ github.event.repository.name }}/"
+          $basePath = "/"
           $index = Join-Path $wwwroot "index.html"
           $playIndex = Join-Path $wwwroot "play/index.html"
           $serviceWorker = Join-Path $wwwroot "service-worker.js"
@@ -52,9 +52,6 @@ jobs:
           Remove-Item "$index.br", "$index.gz", "$playIndex.br", "$playIndex.gz", "$serviceWorker.br", "$serviceWorker.gz" -ErrorAction SilentlyContinue
           Copy-Item $index (Join-Path $wwwroot "404.html")
           New-Item -ItemType File -Path (Join-Path $wwwroot ".nojekyll") -Force | Out-Null
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
