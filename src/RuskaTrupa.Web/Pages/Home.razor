@@ -187,7 +187,7 @@
                         }
                         @if (HumanBidActions().Any(action => action.Amount is not null))
                         {
-                            <input @ref="bidInputElement" type="number" min="@MinimumHumanBid()" step="1" value="@BidInputValue()" @onchange="OnBidInputChanged" @onkeydown="OnBidInputKeyDown" autofocus />
+                            <input @ref="bidInputElement" type="number" min="@MinimumHumanBid()" step="1" value="@BidInputValue()" @oninput="OnBidInputChanged" @onkeydown="OnBidInputKeyDown" autofocus />
                         }
                         @if (HumanBidActions().Any(action => action.Amount is not null) && BidRequiresMarriageSuit())
                         {
@@ -1668,7 +1668,7 @@
             bidInputMinimum = minimum.Value;
             bidInput = minimum.Value;
         }
-        else if (bidInput is null || bidInput < minimum.Value)
+        else if (bidInput is null)
         {
             bidInput = minimum.Value;
         }
@@ -1720,6 +1720,10 @@
             bidError = null;
             EnsureBidMarriageSuit();
         }
+        else
+        {
+            bidInput = null;
+        }
     }
 
     private async Task OnBidInputKeyDown(KeyboardEventArgs args)
@@ -1752,6 +1756,16 @@
         }
 
         var requested = requestedAmount ?? legalBids[0].Amount!.Value;
+        var minimum = legalBids.Min(action => action.Amount!.Value);
+        if (requested < minimum)
+        {
+            bidInputMinimum = minimum;
+            bidInput = minimum;
+            bidError = MinimumBidError(minimum);
+            EnsureBidMarriageSuit();
+            return;
+        }
+
         bidInput = requested;
         if (requested > 120)
         {
@@ -1782,6 +1796,13 @@
         bidError = null;
         bidInput = action.Amount;
         await ApplyHumanAction(action);
+    }
+
+    private string MinimumBidError(int minimum)
+    {
+        return SetupReviewLabel(
+            $"Минималният позволен анонс е {minimum}!",
+            $"The minimum allowed bid is {minimum}!");
     }
 
     private async Task PassBid()
