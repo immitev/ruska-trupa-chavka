@@ -1292,6 +1292,7 @@ code {
 }
 
 .play-area {
+    position: relative;
     display: grid;
     grid-template-columns: minmax(8rem, 0.58fr) minmax(18rem, 1.78fr) minmax(7.4rem, 0.58fr);
     grid-template-rows: auto auto minmax(0, 1fr) auto;
@@ -3534,40 +3535,87 @@ code {
     }
 
     .rail-actions {
-        grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 0.25rem;
+    }
+
+    .rail-actions .btn {
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 2rem;
+        padding: 0.22rem 0.38rem;
+        font-size: 0.78rem;
+        line-height: 1.05;
+        white-space: normal;
     }
 
     .play-area {
         grid-template-columns: minmax(0, 1fr) minmax(4.4rem, 0.32fr);
-        grid-template-rows: auto auto minmax(3.6rem, auto) minmax(3.6rem, auto) minmax(0, 1fr) auto;
+        grid-template-rows: minmax(3.6rem, auto) minmax(3.6rem, auto) minmax(0, 1fr) auto;
         grid-template-areas:
-            "score score"
-            "contract contract"
-            "top rightmid"
+            "top top"
             "left rightmid"
             "center center"
             "human human";
         width: min(100%, calc(100vw - 0.8rem), calc(100vh - 10rem));
         min-width: 0;
         min-height: 0;
-        overflow: hidden;
+        margin-top: 2.65rem;
+        overflow: visible;
         gap: 0.35rem;
         padding: 0.45rem;
     }
 
     .table-score-zone {
-        width: min(100%, 10.25rem);
-        grid-template-columns: minmax(4.6rem, 1fr) minmax(2.8rem, auto);
+        position: absolute;
+        bottom: calc(100% + 0.42rem);
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(100%, 26rem);
+        grid-template-columns: repeat(3, minmax(0, 1fr) auto);
+        border-color: #d8dee6;
+        background: rgba(255, 255, 255, 0.94);
+        box-shadow: 0 3px 10px rgba(16, 24, 40, 0.08);
+    }
+
+    .table-score-zone .active-score {
+        background: transparent;
+    }
+
+    .table-score-zone .score-name,
+    .table-score-zone .score-value {
+        color: #243142;
     }
 
     .score-name {
         font-size: 0.64rem;
+        font-weight: 850;
         padding: 0.24rem 0.38rem;
     }
 
     .score-value {
         font-size: 0.86rem;
+        font-weight: 900;
         padding: 0.22rem 0.4rem;
+    }
+
+    .score-value.negative-score {
+        color: #b42318;
+    }
+
+    .score-value {
+        border-left-color: #d8dee6;
+    }
+
+    .score-name:nth-child(n + 3),
+    .score-value:nth-child(n + 4) {
+        border-top: 0;
+    }
+
+    .score-name:nth-child(3),
+    .score-name:nth-child(5) {
+        border-left: 1px solid #d8dee6;
     }
 
     .table-center {
@@ -3594,8 +3642,15 @@ code {
     }
 
     .seat-top {
+        align-items: center;
         width: 100%;
         min-height: 3.8rem;
+    }
+
+    .seat-top .bot-seat-info {
+        justify-items: center;
+        width: 100%;
+        text-align: center;
     }
 
     .bot-card-row {
@@ -3604,24 +3659,25 @@ code {
     }
 
     .seat-top .bot-card-stack {
-        width: 100%;
-        min-width: 6.5rem;
+        width: min(100%, 6.8rem);
+        min-width: 0;
         height: 3.75rem;
     }
 
     .seat-top .card-back {
         --card-step: min(0.58rem, calc((100% - 1.55rem) / 9));
-        left: calc(var(--card-index) * var(--card-step));
+        left: calc(50% - 2.5rem + (var(--card-index) * var(--card-step)));
         top: 0.1rem;
         width: 1.55rem;
         transform: none;
     }
 
     .seat-left {
-        width: 100%;
+        width: min(100%, 11rem);
         min-height: 3.8rem;
-        flex-direction: row;
-        justify-self: stretch;
+        flex-direction: column;
+        align-items: start;
+        justify-self: start;
     }
 
     .seat-left .bot-seat-info {
@@ -3632,16 +3688,16 @@ code {
     }
 
     .seat-left .bot-card-stack {
-        flex: 1 1 auto;
-        width: auto;
-        min-width: 6.5rem;
+        flex: 0 0 auto;
+        width: min(100%, 10rem);
+        min-width: 0;
         height: 3.75rem;
         margin-top: 0;
         transform: none;
     }
 
     .seat-left .bot-card-row {
-        width: 100%;
+        width: min(100%, 10rem);
         min-width: 0;
         margin-left: 0;
         gap: 0.35rem;
@@ -3672,8 +3728,8 @@ code {
     }
 
     .talon-stack {
-        width: 4.65rem;
-        height: 6.35rem;
+        width: 3.2rem;
+        height: 4.15rem;
     }
 
     .talon-zone {
@@ -3684,12 +3740,108 @@ code {
         width: 3.3rem;
     }
 
+    .talon-back {
+        --card-step: 0.32rem;
+        width: 1.55rem;
+        top: calc(var(--card-index) * 0.1rem);
+    }
+
     .contract-zone {
-        width: 100%;
+        position: absolute;
+        right: 0.55rem;
+        top: 0.55rem;
+        z-index: 7;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.24rem;
+        width: auto;
+        min-width: 0;
+        border-radius: 999px;
+        padding: 0.2rem 0.26rem;
+        background: rgba(8, 34, 30, 0.46);
+    }
+
+    .contract-zone span,
+    .contract-zone .contract-bid {
+        display: flex;
+        grid-template-columns: none;
+        align-items: center;
+        gap: 0;
+        min-height: 0;
+    }
+
+    .contract-zone small,
+    .contract-zone .contract-bid em {
+        display: none;
+    }
+
+    .contract-zone strong {
+        min-width: 1.8rem;
+        font-size: 0.82rem;
+    }
+
+    .contract-trump-symbol {
+        min-width: 1.8rem;
+        height: 1.8rem;
+        font-size: 1.12rem;
+    }
+
+    .contract-trump-symbol.neutral {
+        min-width: 2rem;
+        height: 1.8rem;
+        border-radius: 999px;
+        font-size: 0.68rem;
     }
 
     .last-trick-zone {
         justify-self: stretch;
+    }
+
+    .last-trick-zone .zone-label {
+        display: none;
+    }
+
+    .scoring-area {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr);
+        grid-template-areas: "center";
+        min-height: 17.5rem;
+        aspect-ratio: auto;
+    }
+
+    .scoring-area .seat-top,
+    .scoring-area .seat-left,
+    .scoring-area .talon-zone,
+    .scoring-area .contract-zone,
+    .scoring-area .last-trick-zone,
+    .scoring-area .human-seat,
+    .scoring-area .current-trick-cards,
+    .scoring-area .contract-success-toast {
+        display: none;
+    }
+
+    .scoring-area .table-center {
+        align-self: center;
+        justify-self: stretch;
+    }
+
+    .scoring-area .table-result-panel {
+        width: min(100%, 22rem);
+        margin-inline: auto;
+    }
+
+    .scoring-area .table-result-summary {
+        display: grid;
+        width: 100%;
+        max-width: none;
+        gap: 0.34rem;
+        padding: 0.55rem;
+    }
+
+    .scoring-area .table-result-button,
+    .scoring-area .table-review-button {
+        width: 100%;
     }
 
     .header-actions {

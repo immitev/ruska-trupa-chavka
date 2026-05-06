@@ -1911,7 +1911,8 @@
 
     private string ScoreValueClass(PlayerSeat player)
     {
-        return game.CurrentPlayer == player.Id ? "score-value active-score" : "score-value";
+        var classes = game.CurrentPlayer == player.Id ? "score-value active-score" : "score-value";
+        return game.GameScores[player.Id] < 0 ? $"{classes} negative-score" : classes;
     }
 
     private IReadOnlyList<PlayedCard> VisibleTableTrick()
@@ -1967,7 +1968,12 @@
 
     private string PlayAreaClass()
     {
-        return game.Phase == GamePhase.GameOver ? "play-area game-over-area" : "play-area";
+        return game.Phase switch
+        {
+            GamePhase.GameOver => "play-area game-over-area",
+            GamePhase.ScoringHand => "play-area scoring-area",
+            _ => "play-area"
+        };
     }
 
     private string HumanTalonRevealClass()
