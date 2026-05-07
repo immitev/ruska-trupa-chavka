@@ -61,9 +61,11 @@
                             <span>@ReplayStepLabel()</span>
                         </div>
                         <div class="replay-actions">
-                            <button class="btn btn-secondary btn-sm" type="button" disabled="@(replayStep <= 0)" @onclick="PreviousReplayStep">@Text["Previous"]</button>
-                            <button class="btn btn-secondary btn-sm" type="button" disabled="@(replayStep >= replayActions.Count)" @onclick="NextReplayStep">@Text["Next"]</button>
-                            <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="ExitReplay">@Text["ExitReplay"]</button>
+                            <button class="replay-icon-button" type="button" title="@Text["First"]" aria-label="@Text["First"]" disabled="@(replayStep <= 0)" @onclick="JumpReplayStart">⏮</button>
+                            <button class="replay-icon-button" type="button" title="@Text["Previous"]" aria-label="@Text["Previous"]" disabled="@(replayStep <= 0)" @onclick="PreviousReplayStep">‹</button>
+                            <button class="replay-icon-button" type="button" title="@Text["Next"]" aria-label="@Text["Next"]" disabled="@(replayStep >= replayActions.Count)" @onclick="NextReplayStep">›</button>
+                            <button class="replay-icon-button" type="button" title="@Text["Last"]" aria-label="@Text["Last"]" disabled="@(replayStep >= replayActions.Count)" @onclick="JumpReplayEnd">⏭</button>
+                            <button class="replay-icon-button replay-exit-button" type="button" title="@Text["ExitReplay"]" aria-label="@Text["ExitReplay"]" @onclick="ExitReplay">×</button>
                         </div>
                         <span class="replay-current-action">@ReplayCurrentActionLabel()</span>
                     </section>
@@ -1374,9 +1376,19 @@
         SetReplayStep(Math.Max(0, replayStep - 1));
     }
 
+    private void JumpReplayStart()
+    {
+        SetReplayStep(0);
+    }
+
     private void NextReplayStep()
     {
         SetReplayStep(Math.Min(replayActions.Count, replayStep + 1));
+    }
+
+    private void JumpReplayEnd()
+    {
+        SetReplayStep(replayActions.Count);
     }
 
     private void SetReplayStep(int step)

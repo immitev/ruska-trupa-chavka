@@ -553,13 +553,44 @@ code {
 
 .replay-actions {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(5, 2.35rem);
+    justify-content: center;
     gap: 0.32rem;
 }
 
-.replay-actions .btn {
-    min-width: 0;
-    padding-inline: 0.45rem;
+.replay-icon-button {
+    display: inline-grid;
+    place-items: center;
+    width: 2.35rem;
+    height: 2.25rem;
+    border: 1px solid #cfd7e3;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #243142;
+    font-size: 1.18rem;
+    font-weight: 950;
+    line-height: 1;
+    padding: 0;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    touch-action: manipulation;
+}
+
+.replay-icon-button:hover,
+.replay-icon-button:focus-visible {
+    border-color: #8aa4c8;
+    background: #f7f9fb;
+}
+
+.replay-icon-button:disabled {
+    border-color: #d7dde8;
+    background: #e5e9ef;
+    color: #8995a3;
+    opacity: 1;
+}
+
+.replay-exit-button {
+    border-color: #d9b7b9;
+    color: #a3262d;
 }
 
 .replay-current-action {
