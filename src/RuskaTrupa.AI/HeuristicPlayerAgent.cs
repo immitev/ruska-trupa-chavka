@@ -182,20 +182,22 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
             return new AgentDecision<Card>(legalCards[0], 1.0, "ForcedCard");
         }
 
-        if (SkillLevel == BotSkillLevel.Beginner)
-        {
-            var beginnerCard = legalCards
+        var selected = SkillLevel == BotSkillLevel.Beginner
+            ? legalCards
                 .OrderBy(card => card.PointValue)
                 .ThenBy(card => card.Strength)
-                .First();
-            return new AgentDecision<Card>(beginnerCard, 0.4, "BeginnerConservePoints");
+                .First()
+            : observation.PublicState.CurrentTrick.Count == 0
+                ? ChooseLeadCard(observation, legalCards)
+                : ChooseFollowCard(observation, legalCards);
+
+        var protectedMarriage = AvoidBreakingUnannouncedMarriage(observation, legalCards, selected);
+        if (protectedMarriage != selected)
+        {
+            return new AgentDecision<Card>(protectedMarriage, 0.78, "PreserveUnannouncedMarriage");
         }
 
-        var selected = observation.PublicState.CurrentTrick.Count == 0
-            ? ChooseLeadCard(observation, legalCards)
-            : ChooseFollowCard(observation, legalCards);
-
-        return new AgentDecision<Card>(selected, 0.7, "TrickAwareCard");
+        return new AgentDecision<Card>(selected, SkillLevel == BotSkillLevel.Beginner ? 0.4 : 0.7, SkillLevel == BotSkillLevel.Beginner ? "BeginnerConservePoints" : "TrickAwareCard");
     }
 
     private static AgentDecision<int> DecideBeginnerOpeningBid(GameObservation observation, IReadOnlyList<int> nonPassBids)
@@ -333,6 +335,35 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
     private static bool IsLastToPlayInTrick(PublicGameState state)
     {
         return state.CurrentTrick.Count >= PlayerOrder.All.Count - 1;
+    }
+
+    private static Card AvoidBreakingUnannouncedMarriage(GameObservation observation, IReadOnlyList<Card> legalCards, Card selected)
+    {
+        if (!BreaksUnannouncedMarriage(observation, selected))
+        {
+            return selected;
+        }
+
+        return legalCards
+            .Where(card => !BreaksUnannouncedMarriage(observation, card))
+            .OrderBy(card => ThrowawayCost(card, observation.PublicState.Trump))
+            .ThenBy(card => card.Strength)
+            .Select(card => (Card?)card)
+            .FirstOrDefault() ?? selected;
+    }
+
+    private static bool BreaksUnannouncedMarriage(GameObservation observation, Card card)
+    {
+        return card.Rank is Rank.King or Rank.Queen
+            && HasMarriage(observation.Hand, card.Suit)
+            && !CanAnnounceMarriageByPlaying(observation.PublicState, card.Suit)
+            && !observation.PublicState.MarriageAnnouncements.Any(announcement =>
+                announcement.Player == observation.Self && announcement.Suit == card.Suit);
+    }
+
+    private static bool CanAnnounceMarriageByPlaying(PublicGameState state, Suit suit)
+    {
+        return state.CurrentTrick.Count == 0 || state.CurrentTrick[0].Card.Suit == suit;
     }
 
     private static bool BidderMayStillOvertakeCurrentWinner(GameObservation observation)

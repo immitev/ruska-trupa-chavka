@@ -318,6 +318,42 @@ public sealed class HeuristicPlayerAgentTests
     }
 
     [Fact]
+    public void DecideCard_AvoidsTrumpingWithMarriageCardWhenItCannotBeAnnounced()
+    {
+        var observation = new GameObservation(
+            PlayerId.Second,
+            new[]
+            {
+                new Card(Suit.Hearts, Rank.King),
+                new Card(Suit.Hearts, Rank.Queen),
+                new Card(Suit.Hearts, Rank.Jack)
+            },
+            EmptyPublicState(PlayerId.Second) with
+            {
+                Phase = GamePhase.PlayingTricks,
+                Trump = Suit.Hearts,
+                Bidder = PlayerId.First,
+                CurrentTrick = new[]
+                {
+                    new PlayedCard(PlayerId.First, new Card(Suit.Clubs, Rank.Nine)),
+                    new PlayedCard(PlayerId.Third, new Card(Suit.Clubs, Rank.Ace))
+                }
+            });
+        var agent = new HeuristicPlayerAgent();
+
+        var decision = agent.DecideCard(
+            observation,
+            new[]
+            {
+                new Card(Suit.Hearts, Rank.King),
+                new Card(Suit.Hearts, Rank.Queen),
+                new Card(Suit.Hearts, Rank.Jack)
+            });
+
+        Assert.Equal(new Card(Suit.Hearts, Rank.Jack), decision.Action);
+    }
+
+    [Fact]
     public void DecideCard_DoesNotFeedPointsToPartnerWhenBidderStillCanPlay()
     {
         var observation = new GameObservation(
