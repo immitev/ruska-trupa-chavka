@@ -45,6 +45,14 @@
                     }
                 </div>
 
+                <section class="table-score-zone rail-score-zone" aria-label="@Text["CurrentScore"]">
+                    @foreach (var player in game.Players)
+                    {
+                        <span class="@ScoreNameClass(player)">@PlayerName(player)</span>
+                        <strong class="@ScoreValueClass(player)">@game.GameScores[player.Id]</strong>
+                    }
+                </section>
+
                 @if (IsReplayMode)
                 {
                     <section class="replay-panel" aria-label="@Text["Replay"]">
@@ -72,7 +80,7 @@
             </aside>
 
         <section class="@PlayAreaClass()" aria-label="@Text["GameTable"]">
-            <section class="table-score-zone" aria-label="@Text["CurrentScore"]">
+            <section class="table-score-zone table-score-zone-table" aria-label="@Text["CurrentScore"]">
                 @foreach (var player in game.Players)
                 {
                     <span class="@ScoreNameClass(player)">@PlayerName(player)</span>

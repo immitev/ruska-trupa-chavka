@@ -1152,6 +1152,10 @@ code {
     box-shadow: none;
 }
 
+.rail-score-zone {
+    display: none;
+}
+
 .score-board-header {
     display: flex;
     align-items: end;
@@ -2892,6 +2896,7 @@ code {
     grid-area: human;
     align-self: end;
     position: relative;
+    z-index: 12;
     display: grid;
     justify-items: center;
     width: 100%;
@@ -3108,7 +3113,9 @@ code {
     padding: 0.5rem;
     text-align: left;
     transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+    touch-action: manipulation;
     user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .playing-card:first-child {
@@ -3532,9 +3539,6 @@ code {
         grid-template-columns: 1fr;
         gap: 0.4rem;
         padding: 0.5rem;
-        border-bottom-color: transparent;
-        border-radius: 8px 8px 0 0;
-        box-shadow: none;
     }
 
     .rail-actions {
@@ -3564,23 +3568,29 @@ code {
         width: min(100%, calc(100vw - 0.8rem), calc(100vh - 10rem));
         min-width: 0;
         min-height: 0;
-        margin-top: 1.95rem;
+        margin-top: 0.45rem;
         overflow: visible;
         gap: 0.35rem;
         padding: 0.45rem;
     }
 
     .table-score-zone {
-        position: absolute;
-        bottom: calc(100% - 0.02rem);
-        left: 50%;
-        transform: translateX(-50%);
         width: min(100%, 26rem);
         grid-template-columns: repeat(3, minmax(0, 1fr) auto);
         border-color: #d8dee6;
-        border-radius: 0 0 8px 8px;
+        border-radius: 8px;
         background: rgba(255, 255, 255, 0.94);
-        box-shadow: 0 6px 12px rgba(16, 24, 40, 0.06);
+        box-shadow: none;
+    }
+
+    .rail-score-zone {
+        display: grid;
+        grid-area: auto;
+        width: 100%;
+    }
+
+    .table-score-zone-table {
+        display: none;
     }
 
     .table-score-zone .active-score {
@@ -3624,6 +3634,15 @@ code {
 
     .table-center {
         gap: 0.35rem;
+        pointer-events: none;
+    }
+
+    .table-center button,
+    .table-center input,
+    .table-center select,
+    .table-center textarea,
+    .table-center a {
+        pointer-events: auto;
     }
 
     .bid-picker {
@@ -3646,6 +3665,7 @@ code {
     }
 
     .seat-top {
+        position: relative;
         align-items: center;
         width: 100%;
         min-height: 3.35rem;
@@ -3653,9 +3673,28 @@ code {
     }
 
     .seat-top .bot-seat-info {
+        position: static;
         justify-items: center;
         width: 100%;
         text-align: center;
+    }
+
+    .seat-top .bid-bubble,
+    .seat-left .bid-bubble {
+        position: absolute;
+        z-index: 7;
+        min-width: 2.05rem;
+        min-height: 1.35rem;
+        padding: 0.16rem 0.42rem;
+        font-size: 0.72rem;
+        box-shadow: 0 4px 9px rgba(8, 34, 30, 0.18);
+        pointer-events: none;
+    }
+
+    .seat-top .bid-bubble {
+        left: 50%;
+        top: 1.55rem;
+        transform: translateX(-50%);
     }
 
     .bot-card-row {
@@ -3677,6 +3716,14 @@ code {
         transform: none;
     }
 
+    .seat-top .pending-passed-card {
+        left: calc(50% + 2.08rem);
+        right: auto;
+        top: 0.1rem;
+        transform: none;
+        filter: drop-shadow(0 4px 8px rgba(8, 34, 30, 0.18));
+    }
+
     .seat-left {
         width: min(100%, 11rem);
         min-height: 3.35rem;
@@ -3690,6 +3737,12 @@ code {
         position: static;
         z-index: auto;
         text-align: left;
+        transform: none;
+    }
+
+    .seat-left .bid-bubble {
+        left: 0.38rem;
+        top: 1.55rem;
         transform: none;
     }
 
@@ -3715,6 +3768,28 @@ code {
         top: 0.1rem;
         width: 1.55rem;
         transform: none;
+    }
+
+    .seat-left .pending-passed-card {
+        left: min(4.95rem, calc(100% - 1.55rem));
+        top: calc(1.45rem + 0.1rem);
+        transform: none;
+        filter: drop-shadow(0 4px 8px rgba(8, 34, 30, 0.18));
+    }
+
+    .pending-passed-card .mini-card {
+        width: 1.55rem;
+        border-color: rgba(29, 69, 86, 0.35);
+        border-radius: 5px;
+        background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.16), transparent 35%),
+            repeating-linear-gradient(45deg, #244f67 0 4px, #1c4156 4px 8px);
+        box-shadow: 0 4px 9px rgba(16, 24, 40, 0.18);
+    }
+
+    .pending-passed-card .mini-card .card-corner,
+    .pending-passed-card .mini-card .card-center {
+        display: none;
     }
 
     .trick-pile-top,
@@ -3801,11 +3876,31 @@ code {
     }
 
     .last-trick-zone {
-        justify-self: stretch;
+        justify-self: end;
+        justify-items: end;
+        max-width: 5.1rem;
+        overflow: hidden;
     }
 
     .last-trick-zone .zone-label {
         display: none;
+    }
+
+    .last-trick-zone .history-cards {
+        justify-content: flex-end;
+        width: 5.1rem;
+        max-width: 100%;
+        gap: 0;
+        overflow: hidden;
+    }
+
+    .last-trick-zone .micro-card {
+        flex: 0 0 2.25rem;
+        margin-left: -0.88rem;
+    }
+
+    .last-trick-zone .micro-card:first-child {
+        margin-left: 0;
     }
 
     .scoring-area {
@@ -3850,6 +3945,30 @@ code {
         width: 100%;
     }
 
+    .current-trick-cards .mini-card {
+        width: clamp(3.08rem, 11.2vw, 3.42rem);
+        border-radius: 7px;
+    }
+
+    .current-trick-cards,
+    .last-trick-zone,
+    .trick-pile-human,
+    .pending-passed-card-human {
+        pointer-events: none;
+    }
+
+    .current-trick-cards .mini-card .card-corner {
+        font-size: 0.78rem;
+    }
+
+    .current-trick-cards .mini-card .card-corner strong {
+        font-size: 0.9rem;
+    }
+
+    .current-trick-cards .mini-card .card-center {
+        font-size: 2rem;
+    }
+
     .header-actions {
         justify-content: flex-start;
         width: 100%;
@@ -3865,7 +3984,7 @@ code {
     }
 
     .playing-card {
-        flex-basis: clamp(3.08rem, 11.2vw, 3.42rem);
+        flex: 0 0 clamp(3.08rem, 11.2vw, 3.42rem);
         min-height: 4.72rem;
         margin-left: clamp(-1.56rem, -5vw, -1.28rem);
         border-radius: 7px;
@@ -3873,10 +3992,19 @@ code {
     }
 
     .hand {
+        position: relative;
+        z-index: 2;
         max-width: 100%;
         min-height: 5.7rem;
         margin-top: 0.25rem;
-        padding: 0.2rem 0.15rem 0.35rem;
+        padding: 0.2rem 1.9rem 0.35rem 0.15rem;
+    }
+
+    .pending-passed-card-human {
+        right: 0.2rem;
+        bottom: 0.82rem;
+        transform: none;
+        filter: drop-shadow(0 4px 8px rgba(8, 34, 30, 0.18));
     }
 
     .trick-pile-human {
