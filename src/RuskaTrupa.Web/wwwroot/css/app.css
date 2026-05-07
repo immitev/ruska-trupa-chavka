@@ -3179,7 +3179,7 @@ code {
 }
 
 .mini-card .card-center {
-    font-size: 2rem;
+    font-size: 1.25rem;
 }
 
 .playing-card.red {
@@ -3256,7 +3256,7 @@ code {
     display: grid;
     place-items: center;
     font-family: Georgia, "Times New Roman", serif;
-    font-size: clamp(2.4rem, 5vw, 4.4rem);
+    font-size: clamp(1.35rem, 2.8vw, 2.15rem);
     line-height: 1;
 }
 
@@ -3976,7 +3976,7 @@ code {
     }
 
     .current-trick-cards .mini-card .card-center {
-        font-size: 2rem;
+        font-size: 1.25rem;
     }
 
     .header-actions {
@@ -4057,7 +4057,7 @@ code {
     }
 
     .card-center {
-        font-size: 2rem;
+        font-size: 1.25rem;
     }
 
     .trump-picker {
