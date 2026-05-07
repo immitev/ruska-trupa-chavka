@@ -585,6 +585,7 @@
     private int setupTabIndex;
     private bool autoPlayHuman;
     private bool skipNextAutoplayDelay;
+    private bool fastHumanAutoplay;
     private bool isAdvancingBots;
     private bool rerunAdvanceBots;
     private int contractAnimationKey;
@@ -857,6 +858,7 @@
                 break;
             }
 
+            fastHumanAutoplay = ShouldFastForwardHumanAutoplay();
             var action = ChooseAutomaticAction();
             if (action is null)
             {
@@ -1030,6 +1032,7 @@
     {
         autoPlayHuman = false;
         skipNextAutoplayDelay = false;
+        fastHumanAutoplay = false;
     }
 
     private async Task HoldMarriageFlashAsync()
@@ -1245,6 +1248,7 @@
         tableTrickCollecting = false;
         autoPlayHuman = false;
         skipNextAutoplayDelay = false;
+        fastHumanAutoplay = false;
         return true;
     }
 
@@ -1260,6 +1264,7 @@
         tableTrickCollecting = false;
         autoPlayHuman = false;
         skipNextAutoplayDelay = false;
+        fastHumanAutoplay = false;
     }
 
     private GameState RestoreStateAfterAction(int actionIndex)
@@ -2111,6 +2116,87 @@
             && !isHumanTalonCollecting;
     }
 
+    private bool ShouldFastForwardHumanAutoplay()
+    {
+        return autoPlayHuman
+            && game.Phase == GamePhase.PlayingTricks
+            && HumanWinsAllRemainingTricks(game);
+    }
+
+    private bool HumanWinsAllRemainingTricks(GameState state)
+    {
+        var visited = 0;
+        return HumanWinsAllRemainingTricks(state, new Dictionary<string, bool>(), ref visited);
+    }
+
+    private bool HumanWinsAllRemainingTricks(GameState state, Dictionary<string, bool> memo, ref int visited)
+    {
+        const int MaxVisitedStates = 5000;
+        if (++visited > MaxVisitedStates)
+        {
+            return false;
+        }
+
+        if (state.Phase == GamePhase.ScoringHand)
+        {
+            return true;
+        }
+
+        if (state.Phase != GamePhase.PlayingTricks)
+        {
+            return false;
+        }
+
+        var key = ClaimCheckKey(state);
+        if (memo.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
+        var legalPlays = legalActions
+            .GetLegalActions(state, state.CurrentPlayer)
+            .OfType<PlayCardAction>()
+            .ToArray();
+        if (legalPlays.Length == 0)
+        {
+            memo[key] = false;
+            return false;
+        }
+
+        foreach (var play in legalPlays)
+        {
+            var completedBefore = state.CompletedTricks.Count;
+            var next = reducer.Apply(state, play);
+            if (next.CompletedTricks.Count > completedBefore && next.CompletedTricks[^1].Winner != PlayerId.First)
+            {
+                memo[key] = false;
+                return false;
+            }
+
+            if (!HumanWinsAllRemainingTricks(next, memo, ref visited))
+            {
+                memo[key] = false;
+                return false;
+            }
+        }
+
+        memo[key] = true;
+        return true;
+    }
+
+    private static string ClaimCheckKey(GameState state)
+    {
+        static string CardKey(Card card) => $"{(int)card.Suit}:{(int)card.Rank}";
+        static string HandKey(IReadOnlyList<Card> cards) => string.Join(",", cards
+            .OrderBy(card => card.Suit)
+            .ThenBy(card => card.Rank)
+            .Select(CardKey));
+
+        var hands = string.Join("|", PlayerOrder.All.Select(player => $"{player.Value}={HandKey(state.GetHand(player))}"));
+        var trick = string.Join(",", state.CurrentTrick.Select(played => $"{played.Player.Value}:{CardKey(played.Card)}"));
+        return $"{state.CurrentPlayer.Value};{state.Trump?.ToString() ?? "-"};{hands};{trick}";
+    }
+
     private bool CanCancelNewGameSetup()
     {
         return true;
@@ -2646,6 +2732,11 @@
 
     private int ActionDelay(int milliseconds)
     {
+        if (fastHumanAutoplay)
+        {
+            return 0;
+        }
+
         return autoPlayHuman ? Math.Min(milliseconds, 420) : milliseconds;
     }
 
