@@ -134,7 +134,19 @@
                             <strong class="talon-exchange-title">
                                 <span>@TalonExchangeTitleLabel()</span>
                                 <span class="@TalonExchangeTitleTrumpClass()">@TalonExchangeTitleTrump()</span>
+                                @if (awaitingHumanPlayStartConfirmation && CanStepBackHumanExchange())
+                                {
+                                    <button class="talon-undo-button" type="button" aria-label="@SetupReviewLabel("Назад", "Back")" title="@SetupReviewLabel("Назад", "Back")" @onclick="StepBackHumanExchangeAsync">
+                                        ↶
+                                    </button>
+                                }
                             </strong>
+                        }
+                        @if (awaitingHumanPlayStartConfirmation)
+                        {
+                            <button class="btn btn-success btn-sm talon-confirm-button talon-start-button" type="button" @onclick="ConfirmHumanExchangeAsync">
+                                @SetupReviewLabel("Старт", "Start")
+                            </button>
                         }
                         <div class="@TalonExchangeCardsClass()">
                             @foreach (var item in TalonExchangeItems())
@@ -153,19 +165,6 @@
                             <button class="btn btn-success btn-sm talon-confirm-button" type="button" @onclick="ConfirmTalonExchangePreviewAsync">
                                 @Text["PlayOn"]
                             </button>
-                        }
-                        @if (awaitingHumanPlayStartConfirmation)
-                        {
-                            <div class="talon-review-actions">
-                                <div class="talon-review-secondary-actions">
-                                    <button class="btn btn-secondary btn-sm talon-review-subtle-button" type="button" @onclick="StepBackHumanExchangeAsync">
-                                        @SetupReviewLabel("Назад", "Back")
-                                    </button>
-                                </div>
-                                <button class="btn btn-success btn-sm talon-confirm-button" type="button" @onclick="ConfirmHumanExchangeAsync">
-                                    @Text["PlayOn"]
-                                </button>
-                            </div>
                         }
                         </div>
                     }
@@ -213,8 +212,8 @@
                         <div class="pass-target table-pass-target">@PassTargetLabel()</div>
                         @if (CanStepBackHumanExchange())
                         {
-                            <button class="btn btn-secondary btn-sm talon-review-subtle-button" type="button" @onclick="StepBackHumanExchangeAsync">
-                                @SetupReviewLabel("Назад", "Back")
+                            <button class="talon-undo-button" type="button" aria-label="@SetupReviewLabel("Назад", "Back")" title="@SetupReviewLabel("Назад", "Back")" @onclick="StepBackHumanExchangeAsync">
+                                ↶
                             </button>
                         }
                     }

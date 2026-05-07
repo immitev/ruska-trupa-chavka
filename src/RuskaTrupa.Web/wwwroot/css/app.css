@@ -2004,6 +2004,28 @@ code {
     margin-left: 0.18rem;
 }
 
+.talon-undo-button {
+    display: inline-grid;
+    place-items: center;
+    width: 1.85rem;
+    height: 1.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.62);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.13);
+    color: #ffffff;
+    font-size: 1.05rem;
+    font-weight: 950;
+    line-height: 1;
+    padding: 0;
+    box-shadow: none;
+    touch-action: manipulation;
+}
+
+.talon-undo-button:hover,
+.talon-undo-button:focus-visible {
+    background: rgba(255, 255, 255, 0.22);
+}
+
 .talon-exchange-trump {
     display: inline-grid;
     place-items: center;
@@ -2090,6 +2112,10 @@ code {
 
 .talon-confirm-button {
     min-width: 7rem;
+}
+
+.talon-start-button {
+    min-width: 5.4rem;
 }
 
 .talon-review-actions,
@@ -3788,8 +3814,11 @@ code {
     }
 
     .pending-passed-card-face-up .mini-card {
+        width: 2.05rem;
         border-color: #d6dbe4;
+        border-radius: 6px;
         background: #fffdf8;
+        box-shadow: 0 4px 9px rgba(16, 24, 40, 0.18);
     }
 
     .pending-passed-card .mini-card .card-corner,
@@ -3800,6 +3829,28 @@ code {
     .pending-passed-card-face-up .mini-card .card-corner,
     .pending-passed-card-face-up .mini-card .card-center {
         display: grid;
+    }
+
+    .pending-passed-card-face-up .mini-card .card-corner {
+        font-size: 0.48rem;
+    }
+
+    .pending-passed-card-face-up .mini-card .card-corner strong {
+        font-size: 0.58rem;
+    }
+
+    .pending-passed-card-face-up .mini-card .card-corner.top {
+        top: 0.18rem;
+        left: 0.18rem;
+    }
+
+    .pending-passed-card-face-up .mini-card .card-corner.bottom {
+        right: 0.18rem;
+        bottom: 0.18rem;
+    }
+
+    .pending-passed-card-face-up .mini-card .card-center {
+        font-size: 0.85rem;
     }
 
     .trick-pile-top,
