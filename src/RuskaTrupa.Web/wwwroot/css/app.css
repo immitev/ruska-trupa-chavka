@@ -3787,9 +3787,19 @@ code {
         box-shadow: 0 4px 9px rgba(16, 24, 40, 0.18);
     }
 
+    .pending-passed-card-face-up .mini-card {
+        border-color: #d6dbe4;
+        background: #fffdf8;
+    }
+
     .pending-passed-card .mini-card .card-corner,
     .pending-passed-card .mini-card .card-center {
         display: none;
+    }
+
+    .pending-passed-card-face-up .mini-card .card-corner,
+    .pending-passed-card-face-up .mini-card .card-center {
+        display: grid;
     }
 
     .trick-pile-top,
@@ -4017,6 +4027,10 @@ code {
         min-height: 1.45rem;
         padding: 0.12rem 0.5rem;
         font-size: 0.82rem;
+    }
+
+    .human-seat-info > strong {
+        display: none;
     }
 
     .human-seat-info {

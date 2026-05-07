@@ -134,12 +134,6 @@
                             <strong class="talon-exchange-title">
                                 <span>@TalonExchangeTitleLabel()</span>
                                 <span class="@TalonExchangeTitleTrumpClass()">@TalonExchangeTitleTrump()</span>
-                                @if (awaitingHumanPlayStartConfirmation)
-                                {
-                                    <button class="btn btn-secondary btn-sm talon-review-subtle-button" type="button" @onclick="ChangeHumanTrumpAsync">
-                                        @SetupReviewLabel("Смени коза", "Change trump")
-                                    </button>
-                                }
                             </strong>
                         }
                         <div class="@TalonExchangeCardsClass()">
@@ -164,8 +158,8 @@
                         {
                             <div class="talon-review-actions">
                                 <div class="talon-review-secondary-actions">
-                                    <button class="btn btn-secondary btn-sm talon-review-subtle-button" type="button" @onclick="ChangeHumanPassedCardsAsync">
-                                        @SetupReviewLabel("Смени раздадените карти", "Change passed cards")
+                                    <button class="btn btn-secondary btn-sm talon-review-subtle-button" type="button" @onclick="StepBackHumanExchangeAsync">
+                                        @SetupReviewLabel("Назад", "Back")
                                     </button>
                                 </div>
                                 <button class="btn btn-success btn-sm talon-confirm-button" type="button" @onclick="ConfirmHumanExchangeAsync">
@@ -217,6 +211,12 @@
                     else if (game.Phase == GamePhase.PassCards && CurrentPassRecipient() is not null)
                     {
                         <div class="pass-target table-pass-target">@PassTargetLabel()</div>
+                        @if (CanStepBackHumanExchange())
+                        {
+                            <button class="btn btn-secondary btn-sm talon-review-subtle-button" type="button" @onclick="StepBackHumanExchangeAsync">
+                                @SetupReviewLabel("Назад", "Back")
+                            </button>
+                        }
                     }
                     else if (game.Phase == GamePhase.ChooseTrump && HumanTrumpActions().Count > 0)
                     {
@@ -1172,6 +1172,48 @@
         await Task.CompletedTask;
     }
 
+    private async Task StepBackHumanExchangeAsync()
+    {
+        var preview = talonExchangePreview;
+        if (!RestoreToPreviousHumanExchangeStep())
+        {
+            return;
+        }
+
+        awaitingHumanPlayStartConfirmation = false;
+        pendingResignConfirmation = false;
+        talonExchangePreview = preview;
+        pendingBotTalonPasses = null;
+        botTalonPreviewStage = 0;
+        awaitingTalonExchangeConfirmation = false;
+        StateHasChanged();
+        _ = SaveAsync();
+        await Task.CompletedTask;
+    }
+
+    private bool RestoreToPreviousHumanExchangeStep()
+    {
+        for (var index = game.ActionLog.Count - 1; index >= 0; index--)
+        {
+            var action = game.ActionLog[index];
+            if (action.Player != PlayerId.First)
+            {
+                continue;
+            }
+
+            if (action is PassCardAction or ChooseTrumpAction)
+            {
+                game = index > 0
+                    ? RestoreStateAfterAction(index - 1)
+                    : GameState.StartNewHand(game.InitialSeed);
+                ResetTransientReviewState();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private bool RestoreToLastHumanAction<TAction>()
         where TAction : GameAction
     {
@@ -1203,6 +1245,20 @@
         autoPlayHuman = false;
         skipNextAutoplayDelay = false;
         return true;
+    }
+
+    private void ResetTransientReviewState()
+    {
+        bidInput = null;
+        bidInputMinimum = null;
+        bidMarriageSuit = null;
+        bidError = null;
+        marriageFlash = null;
+        marriageCardPreview = null;
+        tableTrickPreview = null;
+        tableTrickCollecting = false;
+        autoPlayHuman = false;
+        skipNextAutoplayDelay = false;
     }
 
     private GameState RestoreStateAfterAction(int actionIndex)
@@ -2244,6 +2300,20 @@
             ?.Card;
     }
 
+    private string PendingPassedCardClass(PlayerId player)
+    {
+        var classes = $"pending-passed-card pending-passed-card-{player.Value}";
+        return awaitingHumanPlayStartConfirmation && game.Bidder == PlayerId.First
+            ? $"{classes} pending-passed-card-face-up"
+            : classes;
+    }
+
+    private bool CanStepBackHumanExchange()
+    {
+        return game.Bidder == PlayerId.First
+            && game.ActionLog.Any(action => action.Player == PlayerId.First && action is (PassCardAction or ChooseTrumpAction));
+    }
+
     private bool ShouldPauseBeforeHumanFirstPlay()
     {
         return !autoPlayHuman
@@ -2980,7 +3050,7 @@
         if (PendingPassedCardFor(player.Id) is { } pendingCard)
         {
             builder.OpenElement(sequence++, "div");
-            builder.AddAttribute(sequence++, "class", $"pending-passed-card pending-passed-card-{player.Id.Value}");
+            builder.AddAttribute(sequence++, "class", PendingPassedCardClass(player.Id));
             builder.AddContent(sequence++, CardView(pendingCard, "mini-card"));
             builder.CloseElement();
         }
