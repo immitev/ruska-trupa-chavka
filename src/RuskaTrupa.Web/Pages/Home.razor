@@ -2303,9 +2303,7 @@
     private string PendingPassedCardClass(PlayerId player)
     {
         var classes = $"pending-passed-card pending-passed-card-{player.Value}";
-        return awaitingHumanPlayStartConfirmation && game.Bidder == PlayerId.First
-            ? $"{classes} pending-passed-card-face-up"
-            : classes;
+        return $"{classes} pending-passed-card-face-up";
     }
 
     private bool CanStepBackHumanExchange()
