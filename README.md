@@ -19,7 +19,7 @@ The project includes:
 - Replay/review of the last hand, including bids and card play.
 - autoplay mode for letting quickly finishing the current hand.
 - Bot levels: Beginner, Intermediate, Advanced.
-- Bot play styles focused on bidding behavior: Balanced, Bold, Patient.
+- Bot bidding styles: Aggressive, Balanced, Cautious.
 
 ## Solution Layout
 

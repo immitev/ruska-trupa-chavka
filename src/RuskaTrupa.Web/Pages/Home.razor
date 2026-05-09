@@ -488,20 +488,20 @@
                                     </select>
                                 </label>
                                 <label>
-                                    <span>@Text["PlaySpeed"]</span>
-                                    <select value="@BotDelaySeconds(playerId).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)" @onchange="args => SetBotDelay(playerId, args.Value?.ToString())" aria-label="@Text["PlaySpeed"]">
-                                        @foreach (var delay in BotDelayOptions)
-                                        {
-                                            <option value="@delay.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)">@DelayLabel(delay)</option>
-                                        }
-                                    </select>
-                                </label>
-                                <label>
                                     <span>@Text["BotSkill"]</span>
                                     <select value="@BotSkill(playerId).ToString()" @onchange="args => SetBotSkill(playerId, args.Value?.ToString())" aria-label="@Text["BotSkill"]">
                                         @foreach (var level in BotSkillOptions)
                                         {
                                             <option value="@level.ToString()">@BotSkillLabel(level)</option>
+                                        }
+                                    </select>
+                                </label>
+                                <label>
+                                    <span>@Text["PlaySpeed"]</span>
+                                    <select value="@BotDelaySeconds(playerId).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)" @onchange="args => SetBotDelay(playerId, args.Value?.ToString())" aria-label="@Text["PlaySpeed"]">
+                                        @foreach (var delay in BotDelayOptions)
+                                        {
+                                            <option value="@delay.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)">@DelayLabel(delay)</option>
                                         }
                                     </select>
                                 </label>
@@ -594,8 +594,8 @@
     private static IReadOnlyList<PlayerPersona> PersonaOptions { get; } =
     [
         new("mila", "Mila", "\u041c\u0438\u043b\u0430", "Balanced", "\u0411\u0430\u043b\u0430\u043d\u0441\u0438\u0440\u0430\u043d"),
-        new("georgi", "Georgi", "\u0413\u0435\u043e\u0440\u0433\u0438", "Bold", "\u0421\u043c\u0435\u043b"),
-        new("elena", "Elena", "\u0415\u043b\u0435\u043d\u0430", "Patient", "\u0422\u044a\u0440\u043f\u0435\u043b\u0438\u0432")
+        new("georgi", "Georgi", "\u0413\u0435\u043e\u0440\u0433\u0438", "Aggressive", "\u0410\u0433\u0440\u0435\u0441\u0438\u0432\u0435\u043d"),
+        new("elena", "Elena", "\u0415\u043b\u0435\u043d\u0430", "Cautious", "\u041f\u0440\u0435\u0434\u043f\u0430\u0437\u043b\u0438\u0432")
     ];
 
     private static IReadOnlyList<double> BotDelayOptions { get; } = [0.0, 0.5, 1.0, 1.5];
@@ -2749,8 +2749,8 @@
     {
         return PersonaKey(player) switch
         {
-            "georgi" => BotPlayStyle.Bold,
-            "elena" => BotPlayStyle.Patient,
+            "georgi" => BotPlayStyle.Aggressive,
+            "elena" => BotPlayStyle.Cautious,
             _ => BotPlayStyle.Balanced
         };
     }

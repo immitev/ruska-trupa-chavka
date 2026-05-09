@@ -170,15 +170,15 @@ public sealed class HeuristicPlayerAgentTests
             EmptyPublicState(PlayerId.Second));
         var legalBids = Enumerable.Range(101, 60).Prepend(0).ToArray();
         var balanced = new HeuristicPlayerAgent(BotSkillLevel.Advanced, BotPlayStyle.Balanced);
-        var bold = new HeuristicPlayerAgent(BotSkillLevel.Advanced, BotPlayStyle.Bold);
-        var patient = new HeuristicPlayerAgent(BotSkillLevel.Advanced, BotPlayStyle.Patient);
+        var aggressive = new HeuristicPlayerAgent(BotSkillLevel.Advanced, BotPlayStyle.Aggressive);
+        var cautious = new HeuristicPlayerAgent(BotSkillLevel.Advanced, BotPlayStyle.Cautious);
 
         var balancedBid = balanced.DecideOpeningBid(observation, legalBids).Action;
-        var boldBid = bold.DecideOpeningBid(observation, legalBids).Action;
-        var patientBid = patient.DecideOpeningBid(observation, legalBids).Action;
+        var aggressiveBid = aggressive.DecideOpeningBid(observation, legalBids).Action;
+        var cautiousBid = cautious.DecideOpeningBid(observation, legalBids).Action;
 
-        Assert.True(boldBid > balancedBid);
-        Assert.True(patientBid <= balancedBid);
+        Assert.True(aggressiveBid > balancedBid);
+        Assert.True(cautiousBid <= balancedBid);
     }
 
     [Fact]

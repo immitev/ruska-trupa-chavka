@@ -72,8 +72,8 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
         };
         requiredMargin += PlayStyle switch
         {
-            BotPlayStyle.Bold => minimumBid <= 100 ? -6 : -8,
-            BotPlayStyle.Patient => minimumBid <= 100 ? 8 : 10,
+            BotPlayStyle.Aggressive => minimumBid <= 100 ? -6 : -8,
+            BotPlayStyle.Cautious => minimumBid <= 100 ? 8 : 10,
             _ => 0
         };
 
@@ -95,8 +95,8 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
             : minimumBid <= 110 ? 3 : 1;
         maxRaise = PlayStyle switch
         {
-            BotPlayStyle.Bold when SkillLevel == BotSkillLevel.Advanced => minimumBid <= 110 ? 7 : 3,
-            BotPlayStyle.Patient => 1,
+            BotPlayStyle.Aggressive when SkillLevel == BotSkillLevel.Advanced => minimumBid <= 110 ? 7 : 3,
+            BotPlayStyle.Cautious => 1,
             _ => maxRaise
         };
         var ceiling = Math.Min(profile.ContractEstimate - requiredMargin, minimumBid + maxRaise);

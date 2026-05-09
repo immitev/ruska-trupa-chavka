@@ -74,8 +74,8 @@ public sealed class AiBenchmarkTests
                 BotSkillLevel.Advanced,
                 player.Value switch
                 {
-                    2 => BotPlayStyle.Bold,
-                    3 => BotPlayStyle.Patient,
+                    2 => BotPlayStyle.Aggressive,
+                    3 => BotPlayStyle.Cautious,
                     _ => BotPlayStyle.Balanced
                 }));
         var state = GameState.StartNewHand(seed);
