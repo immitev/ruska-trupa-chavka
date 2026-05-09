@@ -1,22 +1,70 @@
 {
-  "name": "Ruska Trupa",
+  "name": "Руска Трупа онлайн",
   "short_name": "Ruska Trupa",
-  "id": "/",
-  "start_url": "/",
+  "description": "Класическата българска игра с карти за трима, позната още като Чавка или Руска тройка, с два бота за самостоятелна игра.",
+  "lang": "bg",
+  "dir": "ltr",
+  "id": "/play/",
+  "start_url": "/play/index.html",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#f4f1ea",
   "theme_color": "#214f45",
+  "categories": [
+    "games",
+    "entertainment"
+  ],
   "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon-512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any"
     },
     {
       "src": "/icon-192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/store-desktop.png",
+      "type": "image/png",
+      "sizes": "1366x768",
+      "form_factor": "wide",
+      "label": "Игра на Руска Трупа срещу два бота"
+    },
+    {
+      "src": "/screenshots/store-mobile.png",
+      "type": "image/png",
+      "sizes": "390x844",
+      "form_factor": "narrow",
+      "label": "Мобилен изглед на играта"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Играй",
+      "short_name": "Играй",
+      "description": "Отвори играта директно.",
+      "url": "/play/index.html",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "type": "image/png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

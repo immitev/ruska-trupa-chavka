@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Руска Трупа онлайн - игра с карти за трима (за теб и два бота)</title>
     <meta name="description" content="Играй Руска Трупа онлайн. Класическа игра с карти за трима играчи, позната още като Чавка или Руска тройка." />
+    <meta name="theme-color" content="#214f45" />
     <meta name="keywords" content="Руска Трупа, Чавка, Руска тройка, игра с карти, карти за трима, онлайн карти, Сантасе, анонсиране, коз, взятки" />
     <meta property="og:title" content="Играй руска трупа онлайн" />
     <meta property="og:description" content="Играй руска трупа срещу ботове. Играта е позната още като Чавка или Руска тройка." />
@@ -13,6 +14,15 @@
     <script>
         (function () {
             var path = window.location.pathname.replace(/\/+$/, "");
+            var isStandalone =
+                (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+                window.navigator.standalone === true;
+
+            if (isStandalone && (path === "" || path === "/" || /\/index\.html$/i.test(path))) {
+                window.location.replace("/play/index.html" + window.location.search + window.location.hash);
+                return;
+            }
+
             if (/\/play$/i.test(path)) {
                 window.location.replace(path.replace(/\/play$/i, "/play") + "/index.html" + window.location.search + window.location.hash);
             }
@@ -97,15 +107,9 @@
     </main>
     <script>
         if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.getRegistrations()
-                .then(registrations => Promise.all(registrations.map(registration => registration.unregister())));
-        }
-
-        if ("caches" in window) {
-            caches.keys()
-                .then(keys => Promise.all(keys
-                    .filter(key => key.startsWith("offline-cache-"))
-                    .map(key => caches.delete(key))));
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("service-worker.js");
+            });
         }
     </script>
 </body>
