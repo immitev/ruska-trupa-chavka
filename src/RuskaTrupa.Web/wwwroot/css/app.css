@@ -2466,6 +2466,15 @@ code {
     transform-origin: 50% 115%;
 }
 
+.seat-top .replay-opponent-card {
+    --fan-index: calc(var(--card-index) - 3.5);
+    left: calc(50% - 2.35rem + (var(--fan-index) * 1.05rem));
+    top: 0.65rem;
+    width: 4.7rem;
+    transform: rotate(calc(var(--fan-index) * 7deg));
+    transform-origin: 50% 115%;
+}
+
 .trick-pile {
     position: relative;
     display: inline-grid;
@@ -2589,6 +2598,15 @@ code {
     transform-origin: 50% 115%;
 }
 
+.seat-left .replay-opponent-card {
+    --fan-index: calc(var(--card-index) - 3.5);
+    left: calc(50% - 2.35rem + (var(--fan-index) * 1.05rem));
+    top: 2.85rem;
+    width: 4.7rem;
+    transform: rotate(calc(var(--fan-index) * 7deg));
+    transform-origin: 50% 115%;
+}
+
 .trick-pile-left {
     position: absolute;
     left: 3.1rem;
@@ -2688,6 +2706,16 @@ code {
         linear-gradient(135deg, rgba(255, 255, 255, 0.16), transparent 35%),
         repeating-linear-gradient(45deg, #244f67 0 4px, #1c4156 4px 8px);
     box-shadow: 0 4px 9px rgba(16, 24, 40, 0.18);
+}
+
+.replay-opponent-card {
+    position: absolute;
+    z-index: 2;
+    filter: drop-shadow(0 8px 14px rgba(8, 34, 30, 0.2));
+}
+
+.replay-opponent-card .mini-card {
+    width: 100%;
 }
 
 .active-seat .card-back {

@@ -3138,12 +3138,24 @@
         builder.OpenElement(sequence++, "div");
         builder.AddAttribute(sequence++, "class", "bot-card-stack");
         builder.AddAttribute(sequence++, "aria-label", $"{PlayerName(player)}: {game.GetHand(player.Id).Count} {Text["Cards"]}");
-        for (var index = 0; index < game.GetHand(player.Id).Count; index++)
+        var hand = SortHandForDisplay(game.GetHand(player.Id));
+        for (var index = 0; index < hand.Count; index++)
         {
-            builder.OpenElement(sequence++, "span");
-            builder.AddAttribute(sequence++, "class", "card-back");
-            builder.AddAttribute(sequence++, "style", $"--card-index: {index}");
-            builder.CloseElement();
+            if (IsReplayMode)
+            {
+                builder.OpenElement(sequence++, "div");
+                builder.AddAttribute(sequence++, "class", "replay-opponent-card");
+                builder.AddAttribute(sequence++, "style", $"--card-index: {index}");
+                builder.AddContent(sequence++, CardView(hand[index], "mini-card"));
+                builder.CloseElement();
+            }
+            else
+            {
+                builder.OpenElement(sequence++, "span");
+                builder.AddAttribute(sequence++, "class", "card-back");
+                builder.AddAttribute(sequence++, "style", $"--card-index: {index}");
+                builder.CloseElement();
+            }
         }
         builder.CloseElement();
 
