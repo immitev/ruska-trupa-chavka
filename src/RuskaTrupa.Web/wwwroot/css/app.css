@@ -171,14 +171,14 @@ code {
 }
 
 .landing-hero h1 {
-    max-width: 12ch;
     margin: 0;
     color: #fff8df;
-    font-size: clamp(3.2rem, 9vw, 7.6rem);
+    max-width: 100%;
+    font-size: 6.5rem;
     font-weight: 950;
-    line-height: 0.9;
+    line-height: 0.95;
     letter-spacing: 0;
-    text-wrap: balance;
+    white-space: nowrap;
 }
 
 .landing-lead {
@@ -3411,6 +3411,10 @@ code {
         grid-template-columns: 1fr;
     }
 
+    .landing-hero h1 {
+        font-size: 5rem;
+    }
+
     .landing-final {
         grid-template-columns: 1fr;
         justify-items: start;
@@ -3484,12 +3488,12 @@ code {
         height: 3.5rem;
     }
 
-    .landing-hero h1 {
-        max-width: 10ch;
-    }
-
     .landing-lead {
         max-width: 22rem;
+    }
+
+    .landing-hero h1 {
+        font-size: 2.85rem;
     }
 
     .landing-card {
