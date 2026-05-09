@@ -144,7 +144,12 @@ public sealed class HeuristicPlayerAgentTests
                 new Card(Suit.Hearts, Rank.Ten),
                 new Card(Suit.Spades, Rank.Ace)
             },
-            EmptyPublicState(PlayerId.Second));
+            EmptyPublicState(PlayerId.Second) with
+            {
+                Bids = new[] { new Bid(PlayerId.First, 100) },
+                Bidder = PlayerId.First,
+                WinningBid = 100
+            });
         var agent = new HeuristicPlayerAgent();
 
         var decision = agent.DecideOpeningBid(observation, Enumerable.Range(101, 60).Prepend(0).ToArray());
@@ -153,7 +158,7 @@ public sealed class HeuristicPlayerAgentTests
     }
 
     [Fact]
-    public void DecideOpeningBid_PlayStyleChangesRiskTolerance()
+    public void DecideOpeningBid_AggressiveDoesNotJumpWhenOpening()
     {
         var observation = new GameObservation(
             PlayerId.Second,
@@ -168,6 +173,34 @@ public sealed class HeuristicPlayerAgentTests
                 new Card(Suit.Spades, Rank.Ace)
             },
             EmptyPublicState(PlayerId.Second));
+        var agent = new HeuristicPlayerAgent(BotSkillLevel.Advanced, BotPlayStyle.Aggressive);
+
+        var decision = agent.DecideOpeningBid(observation, Enumerable.Range(100, 61).Prepend(0).ToArray());
+
+        Assert.InRange(decision.Action, 100, 101);
+    }
+
+    [Fact]
+    public void DecideOpeningBid_PlayStyleChangesRiskToleranceAfterExistingBid()
+    {
+        var observation = new GameObservation(
+            PlayerId.Second,
+            new[]
+            {
+                new Card(Suit.Clubs, Rank.Ace),
+                new Card(Suit.Clubs, Rank.Ten),
+                new Card(Suit.Clubs, Rank.King),
+                new Card(Suit.Clubs, Rank.Queen),
+                new Card(Suit.Hearts, Rank.Ace),
+                new Card(Suit.Hearts, Rank.Ten),
+                new Card(Suit.Spades, Rank.Ace)
+            },
+            EmptyPublicState(PlayerId.Second) with
+            {
+                Bids = new[] { new Bid(PlayerId.First, 100) },
+                Bidder = PlayerId.First,
+                WinningBid = 100
+            });
         var legalBids = Enumerable.Range(101, 60).Prepend(0).ToArray();
         var balanced = new HeuristicPlayerAgent(BotSkillLevel.Advanced, BotPlayStyle.Balanced);
         var aggressive = new HeuristicPlayerAgent(BotSkillLevel.Advanced, BotPlayStyle.Aggressive);

@@ -58,6 +58,8 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
 
         var minimumBid = nonPassBids[0];
         var profile = EvaluateHand(observation.Hand);
+        var hasExistingBid = observation.PublicState.WinningBid is not null
+            || observation.PublicState.Bids.Any(bid => bid.Amount is > 0);
 
         if (minimumBid > MarriageBidThreshold && profile.MarriageCount == 0)
         {
@@ -72,7 +74,7 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
         };
         requiredMargin += PlayStyle switch
         {
-            BotPlayStyle.Aggressive => minimumBid <= 100 ? -6 : -8,
+            BotPlayStyle.Aggressive when hasExistingBid => minimumBid <= 100 ? -6 : -8,
             BotPlayStyle.Cautious => minimumBid <= 100 ? 8 : 10,
             _ => 0
         };
@@ -90,12 +92,15 @@ public sealed class HeuristicPlayerAgent : IPlayerAgent
             return new AgentDecision<int>(0, 0.78, "InsufficientContractMargin");
         }
 
-        var maxRaise = SkillLevel == BotSkillLevel.Intermediate
-            ? 1
-            : minimumBid <= 110 ? 3 : 1;
+        var maxRaise = 1;
+        if (hasExistingBid && SkillLevel == BotSkillLevel.Advanced)
+        {
+            maxRaise = minimumBid <= 110 ? 3 : 1;
+        }
+
         maxRaise = PlayStyle switch
         {
-            BotPlayStyle.Aggressive when SkillLevel == BotSkillLevel.Advanced => minimumBid <= 110 ? 7 : 3,
+            BotPlayStyle.Aggressive when hasExistingBid && SkillLevel == BotSkillLevel.Advanced => minimumBid <= 110 ? 7 : 3,
             BotPlayStyle.Cautious => 1,
             _ => maxRaise
         };
