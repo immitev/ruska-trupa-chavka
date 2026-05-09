@@ -126,7 +126,7 @@ code {
 .landing-hero {
     position: relative;
     display: grid;
-    min-height: 92svh;
+    min-height: 60svh;
     place-items: center start;
     padding: clamp(1.25rem, 4vw, 4rem);
     isolation: isolate;
@@ -260,16 +260,16 @@ code {
 }
 
 .landing-card-left {
-    right: 30%;
-    bottom: 14%;
-    transform: rotate(-24deg);
+    right: 22%;
+    bottom: 10%;
+    transform: rotate(-18deg);
     animation-delay: 240ms;
 }
 
 .landing-card-right {
-    right: 8%;
-    bottom: 13%;
-    transform: rotate(22deg);
+    right: 11%;
+    bottom: 9%;
+    transform: rotate(18deg);
     animation-delay: 480ms;
 }
 
@@ -338,27 +338,15 @@ code {
 }
 
 .landing-final {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
+    grid-template-columns: minmax(0, 1fr);
     width: 100%;
     padding-inline: clamp(1.25rem, 5vw, 5rem);
     background: #173a33;
-    row-gap: 2rem;
+    padding-block: clamp(2.4rem, 5vw, 4rem);
 }
 
-.landing-final-body {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-}
-
-.landing-final h2 {
-    color: #fff8df;
-}
-
-.landing-cta-light {
-    margin-top: 0;
+.landing-intro-cta {
+    margin-top: clamp(2.4rem, 4.2vw, 3.4rem);
 }
 
 @keyframes landing-copy-in {
@@ -385,10 +373,6 @@ code {
 }
 
 .landing-final-footer {
-    grid-column: 1 / -1;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
-    padding-top: clamp(1.4rem, 3vw, 2rem);
-    margin-top: 2.5rem;
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
@@ -3398,7 +3382,7 @@ code {
 
 @media (max-width: 900px) {
     .landing-hero {
-        min-height: 88svh;
+        min-height: 62svh;
         align-items: end;
         padding-bottom: 3rem;
     }
@@ -3409,13 +3393,13 @@ code {
     }
 
     .landing-card-left {
-        right: 44%;
-        bottom: 42%;
+        right: 34%;
+        bottom: 35%;
     }
 
     .landing-card-right {
-        right: 7%;
-        bottom: 39%;
+        right: 14%;
+        bottom: 34%;
     }
 
     .landing-section,
@@ -3490,7 +3474,7 @@ code {
 
 @media (max-width: 560px) {
     .landing-hero {
-        min-height: 92svh;
+        min-height: 62svh;
         padding: 1rem;
         padding-bottom: 2rem;
     }
@@ -3518,13 +3502,13 @@ code {
     }
 
     .landing-card-left {
-        right: 49%;
-        bottom: 59%;
+        right: 39%;
+        bottom: 55%;
     }
 
     .landing-card-right {
-        right: 8%;
-        bottom: 58%;
+        right: 15%;
+        bottom: 54%;
     }
 
     .landing-section,

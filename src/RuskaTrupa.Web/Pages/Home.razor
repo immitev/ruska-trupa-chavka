@@ -2,6 +2,7 @@
 @page "/play/index.html"
 @inject CultureState Text
 @inject IJSRuntime Js
+@inject NavigationManager Navigation
 
 <PageTitle>@Text["AppName"]</PageTitle>
 
@@ -616,10 +617,19 @@
             await LoadBotSkillsAsync();
             await LoadHumanNameAsync();
             await LoadSetupLockedAsync();
+            var shouldOpenRules = ShouldOpenRulesFromUrl(out var forceBulgarianRules);
+            if (forceBulgarianRules)
+            {
+                SetCulture("bg");
+            }
             if (!await LoadUnfinishedGameAsync())
             {
                 newGameSetupVisible = true;
                 setupTabIndex = 0;
+            }
+            if (shouldOpenRules)
+            {
+                rulesVisible = true;
             }
             isReady = true;
             StateHasChanged();
@@ -3235,6 +3245,13 @@
     private void HideRules()
     {
         rulesVisible = false;
+    }
+
+    private bool ShouldOpenRulesFromUrl(out bool forceBulgarian)
+    {
+        var query = Navigation.ToAbsoluteUri(Navigation.Uri).Query;
+        forceBulgarian = query.Contains("rules=bg", StringComparison.OrdinalIgnoreCase);
+        return query.Contains("rules", StringComparison.OrdinalIgnoreCase);
     }
 
     private IReadOnlyList<string> RulesText()
