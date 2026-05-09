@@ -136,19 +136,7 @@
                             <strong class="talon-exchange-title">
                                 <span>@TalonExchangeTitleLabel()</span>
                                 <span class="@TalonExchangeTitleTrumpClass()">@TalonExchangeTitleTrump()</span>
-                                @if (awaitingHumanPlayStartConfirmation && CanStepBackHumanExchange())
-                                {
-                                    <button class="talon-undo-button" type="button" aria-label="@SetupReviewLabel("Назад", "Back")" title="@SetupReviewLabel("Назад", "Back")" @onclick="StepBackHumanExchangeAsync">
-                                        ↶
-                                    </button>
-                                }
                             </strong>
-                        }
-                        @if (awaitingHumanPlayStartConfirmation)
-                        {
-                            <button class="btn btn-success btn-sm talon-confirm-button talon-start-button" type="button" @onclick="ConfirmHumanExchangeAsync">
-                                @SetupReviewLabel("Старт", "Start")
-                            </button>
                         }
                         <div class="@TalonExchangeCardsClass()">
                             @foreach (var item in TalonExchangeItems())
@@ -212,12 +200,6 @@
                     else if (game.Phase == GamePhase.PassCards && CurrentPassRecipient() is not null)
                     {
                         <div class="pass-target table-pass-target">@PassTargetLabel()</div>
-                        @if (CanStepBackHumanExchange())
-                        {
-                            <button class="talon-undo-button" type="button" aria-label="@SetupReviewLabel("Назад", "Back")" title="@SetupReviewLabel("Назад", "Back")" @onclick="StepBackHumanExchangeAsync">
-                                ↶
-                            </button>
-                        }
                     }
                     else if (game.Phase == GamePhase.ChooseTrump && HumanTrumpActions().Count > 0)
                     {
@@ -355,6 +337,21 @@
             @if (game.Phase != GamePhase.GameOver)
             {
             <section class="human-seat" aria-label="@Text["YourHand"]">
+                @if (ShouldShowHumanExchangeStatus())
+                {
+                    <div class="human-exchange-status" aria-label="@Text["Contract"]">
+                        <strong class="talon-exchange-title">
+                            <span>@TalonExchangeTitleLabel()</span>
+                            <span class="@TalonExchangeTitleTrumpClass()">@TalonExchangeTitleTrump()</span>
+                            @if (CanStepBackHumanExchange())
+                            {
+                                <button class="talon-undo-button" type="button" aria-label="@SetupReviewLabel("Назад", "Back")" title="@SetupReviewLabel("Назад", "Back")" @onclick="StepBackHumanExchangeAsync">
+                                    ↶
+                                </button>
+                            }
+                        </strong>
+                    </div>
+                }
                 <div class="human-seat-info">
                     <strong>@PlayerName(PlayerId.First)</strong>
                     @if (MarriageFlashLabel(PlayerId.First) is { } humanFlash)
@@ -384,7 +381,7 @@
                     </div>
                     @if (PendingPassedCardFor(PlayerId.First) is { } humanPendingCard)
                     {
-                        <div class="pending-passed-card pending-passed-card-human">
+                        <div class="pending-passed-card pending-passed-card-human pending-passed-card-face-up">
                             @CardView(humanPendingCard, "mini-card")
                         </div>
                     }
@@ -2333,9 +2330,9 @@
             return false;
         }
 
-        if (awaitingHumanPlayStartConfirmation)
+        if (game.Bidder == PlayerId.First && game.Phase == GamePhase.PlayingTricks)
         {
-            return true;
+            return false;
         }
 
         return awaitingTalonExchangeConfirmation
@@ -2383,6 +2380,20 @@
         return cssClass;
     }
 
+    private bool ShouldShowHumanExchangeStatus()
+    {
+        return game.Bidder == PlayerId.First
+            && !IsReplayMode
+            && game.Phase is GamePhase.PassCards or GamePhase.PlayingTricks
+            && !HasHumanPlayedCardInCurrentHand()
+            && (awaitingHumanPlayStartConfirmation || CanStepBackHumanExchange());
+    }
+
+    private bool HasHumanPlayedCardInCurrentHand()
+    {
+        return LatestHandActionMatches(action => action.Player == PlayerId.First && action is PlayCardAction);
+    }
+
     private Card? PendingPassedCardFor(PlayerId player)
     {
         if (awaitingHumanPlayStartConfirmation && game.Bidder == PlayerId.First)
@@ -2406,7 +2417,21 @@
     private bool CanStepBackHumanExchange()
     {
         return game.Bidder == PlayerId.First
-            && game.ActionLog.Any(action => action.Player == PlayerId.First && action is (PassCardAction or ChooseTrumpAction));
+            && LatestHandActionMatches(action => action.Player == PlayerId.First && action is (PassCardAction or ChooseTrumpAction));
+    }
+
+    private bool LatestHandActionMatches(Func<GameAction, bool> predicate)
+    {
+        var range = LatestHandActionRange(game.ActionLog);
+        for (var index = range.Start; index < range.End; index++)
+        {
+            if (predicate(game.ActionLog[index]))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool ShouldPauseBeforeHumanFirstPlay()
