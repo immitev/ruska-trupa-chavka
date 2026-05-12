@@ -466,6 +466,7 @@ code {
     display: grid;
     align-content: start;
     gap: 0.55rem;
+    min-width: 0;
     border: 1px solid rgba(35, 46, 58, 0.12);
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.92);
@@ -519,13 +520,20 @@ code {
 }
 
 .replay-status {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
+    gap: 0.4rem;
+    min-width: 0;
     color: #17212f;
     font-size: 0.85rem;
     font-weight: 900;
+}
+
+.replay-status strong,
+.replay-status span,
+.replay-current-action {
+    min-width: 0;
 }
 
 .replay-status span,
@@ -535,17 +543,36 @@ code {
     font-weight: 800;
 }
 
+.replay-status span {
+    justify-self: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.replay-status .replay-exit-button {
+    justify-self: end;
+    width: 2rem;
+    height: 2rem;
+}
+
 .replay-actions {
     display: grid;
-    grid-template-columns: repeat(5, 2.35rem);
+    grid-template-columns: repeat(4, minmax(2rem, 1fr));
     justify-content: center;
     gap: 0.32rem;
+    min-width: 0;
+}
+
+.replay-actions .replay-exit-button {
+    display: none;
 }
 
 .replay-icon-button {
     display: inline-grid;
     place-items: center;
-    width: 2.35rem;
+    width: 100%;
+    min-width: 0;
     height: 2.25rem;
     border: 1px solid #cfd7e3;
     border-radius: 7px;

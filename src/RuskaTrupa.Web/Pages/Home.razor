@@ -60,6 +60,7 @@
                         <div class="replay-status">
                             <strong>@Text["Replay"]</strong>
                             <span>@ReplayStepLabel()</span>
+                            <button class="replay-icon-button replay-exit-button" type="button" title="@Text["ExitReplay"]" aria-label="@Text["ExitReplay"]" @onclick="ExitReplay">×</button>
                         </div>
                         <div class="replay-actions">
                             <button class="replay-icon-button" type="button" title="@Text["First"]" aria-label="@Text["First"]" disabled="@(replayStep <= 0)" @onclick="JumpReplayStart">⏮</button>
